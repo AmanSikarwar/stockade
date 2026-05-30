@@ -128,8 +128,20 @@ class OrderService:
 
         return self.get_order(order.id)
 
-    def list_orders(self, *, limit: int, offset: int) -> tuple[list[Order], int]:
-        return self.repository.list(limit=limit, offset=offset)
+    def list_orders(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        status: str | None = None,
+        customer_id: UUID | None = None,
+    ) -> tuple[list[Order], int]:
+        return self.repository.list(
+            limit=limit,
+            offset=offset,
+            status=status,
+            customer_id=customer_id,
+        )
 
     def get_order(self, order_id: UUID) -> Order:
         order = self.repository.get_by_id(order_id)

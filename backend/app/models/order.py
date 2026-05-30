@@ -23,6 +23,8 @@ class Order(IdMixin, TimestampMixin, Base):
         CheckConstraint("status IN ('active', 'cancelled')", name="status_allowed"),
         CheckConstraint("total_amount >= 0", name="total_amount_non_negative"),
         Index("ix_orders_organization_id", "organization_id"),
+        Index("ix_orders_organization_id_status", "organization_id", "status"),
+        Index("ix_orders_organization_id_customer_id", "organization_id", "customer_id"),
         Index("ix_orders_customer_id", "customer_id"),
         Index("ix_orders_status", "status"),
     )

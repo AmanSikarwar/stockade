@@ -5,7 +5,7 @@ def test_product_endpoints_require_authentication(client: TestClient) -> None:
     response = client.get("/products")
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Could not validate credentials"
+    assert response.json()["detail"]["code"] == "unauthorized"
 
 
 def test_product_crud_flow(client: TestClient, auth_headers: dict[str, str]) -> None:

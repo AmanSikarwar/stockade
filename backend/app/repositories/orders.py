@@ -15,8 +15,20 @@ class OrderRepository(OrganizationScopedRepository):
     def __init__(self, session: Session, organization_id: UUID) -> None:
         super().__init__(session, organization_id)
 
-    def list(self, *, limit: int, offset: int) -> tuple[list[Order], int]:
+    def list(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        status: str | None,
+        customer_id: UUID | None,
+    ) -> tuple[list[Order], int]:
         conditions = [Order.organization_id == self.organization_id]
+        if status is not None:
+            conditions.append(Order.status == status)
+        if customer_id is not None:
+            conditions.append(Order.customer_id == customer_id)
+
         total = self.session.scalar(select(func.count(Order.id)).where(*conditions)) or 0
         orders = list(
             self.session.scalars(

@@ -7,6 +7,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.api.errors import error_detail
 from app.core.config import Settings, get_settings
 from app.core.security import decode_access_token
 from app.db.session import SessionLocal
@@ -30,7 +31,7 @@ def get_db_session() -> Generator[Session]:
 def credentials_error() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail=error_detail("unauthorized", "Could not validate credentials"),
         headers={"WWW-Authenticate": "Bearer"},
     )
 

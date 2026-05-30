@@ -32,6 +32,12 @@ class Product(IdMixin, TimestampMixin, Base):
         CheckConstraint("quantity_in_stock >= 0", name="quantity_non_negative"),
         UniqueConstraint("organization_id", "sku", name="uq_products_organization_id_sku"),
         Index("ix_products_organization_id", "organization_id"),
+        Index(
+            "ix_products_organization_id_active_quantity",
+            "organization_id",
+            "active",
+            "quantity_in_stock",
+        ),
         Index("ix_products_sku", "sku"),
         Index("ix_products_active", "active"),
     )

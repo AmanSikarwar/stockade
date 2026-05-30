@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -80,9 +80,16 @@ def list_orders(
     session: Annotated[Session, Depends(get_db_session)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    order_status: Annotated[Literal["active", "cancelled"] | None, Query(alias="status")] = None,
+    customer_id: UUID | None = None,
 ) -> OrderListResponse:
     service = OrderService(session, current_user.organization_id)
-    orders, total = service.list_orders(limit=limit, offset=offset)
+    orders, total = service.list_orders(
+        limit=limit,
+        offset=offset,
+        status=order_status,
+        customer_id=customer_id,
+    )
     return OrderListResponse(
         items=[OrderSummaryResponse.model_validate(order) for order in orders],
         total=total,

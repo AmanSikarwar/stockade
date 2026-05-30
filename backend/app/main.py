@@ -5,12 +5,42 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from app.api.router import api_router
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging
 
 logger = logging.getLogger(__name__)
+
+
+HTTP_ERROR_CODES = {
+    status.HTTP_400_BAD_REQUEST: "bad_request",
+    status.HTTP_401_UNAUTHORIZED: "unauthorized",
+    status.HTTP_403_FORBIDDEN: "forbidden",
+    status.HTTP_404_NOT_FOUND: "not_found",
+    status.HTTP_405_METHOD_NOT_ALLOWED: "method_not_allowed",
+    status.HTTP_409_CONFLICT: "conflict",
+}
+
+
+async def http_exception_handler(
+    request: Request,
+    exc: StarletteHTTPException,
+) -> JSONResponse:
+    if isinstance(exc.detail, dict) and {"code", "message"} <= set(exc.detail):
+        detail = exc.detail
+    else:
+        detail = {
+            "code": HTTP_ERROR_CODES.get(exc.status_code, "http_error"),
+            "message": str(exc.detail),
+        }
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": detail},
+        headers=getattr(exc, "headers", None),
+    )
 
 
 async def request_validation_error_handler(
@@ -57,6 +87,7 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
     app.add_exception_handler(RequestValidationError, request_validation_error_handler)
+    app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.include_router(api_router)
     return app
 

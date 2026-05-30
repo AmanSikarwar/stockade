@@ -1,9 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, get_current_user, get_db_session
+from app.api.errors import http_error
 from app.core.config import Settings, get_settings
 from app.schemas.auth import LoginRequest, TokenResponse, UserResponse
 from app.services.auth import authenticate_user, issue_access_token
@@ -19,9 +20,10 @@ def login(
 ) -> TokenResponse:
     user = authenticate_user(session, email=payload.email, password=payload.password)
     if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid email or password",
+        raise http_error(
+            status.HTTP_401_UNAUTHORIZED,
+            "invalid_credentials",
+            "Invalid email or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

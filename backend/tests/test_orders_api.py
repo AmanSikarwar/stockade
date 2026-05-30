@@ -16,7 +16,7 @@ def test_order_endpoints_require_authentication(client: TestClient) -> None:
     response = client.get("/orders")
 
     assert response.status_code == 401
-    assert response.json()["detail"] == "Could not validate credentials"
+    assert response.json()["detail"]["code"] == "unauthorized"
 
 
 def test_order_create_get_list_and_cancel_flow(
@@ -66,6 +66,58 @@ def test_order_create_get_list_and_cancel_flow(
     assert cancel_response.content == b""
     assert db_session.get(Product, tape.id).quantity_in_stock == 10
     assert db_session.get(Order, UUID(order_id)).status == "cancelled"
+
+
+def test_order_list_filters_by_status_and_customer(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    db_session: Session,
+    admin_user: User,
+) -> None:
+    first_customer_id = create_customer(db_session, admin_user.organization_id, email_slug="ada")
+    second_customer_id = create_customer(db_session, admin_user.organization_id, email_slug="grace")
+    first_product = create_product(
+        db_session,
+        admin_user.organization_id,
+        sku="TAPE-001",
+        price=Decimal("3.25"),
+        stock=10,
+    )
+    second_product = create_product(
+        db_session,
+        admin_user.organization_id,
+        sku="BOX-001",
+        price=Decimal("2.00"),
+        stock=10,
+    )
+    first_order = client.post(
+        "/orders",
+        headers=auth_headers,
+        json={
+            "customer_id": str(first_customer_id),
+            "line_items": [{"product_id": str(first_product.id), "quantity": 1}],
+        },
+    ).json()
+    second_order = client.post(
+        "/orders",
+        headers=auth_headers,
+        json={
+            "customer_id": str(second_customer_id),
+            "line_items": [{"product_id": str(second_product.id), "quantity": 1}],
+        },
+    ).json()
+    client.delete(f"/orders/{second_order['id']}", headers=auth_headers)
+
+    active_response = client.get("/orders?status=active", headers=auth_headers)
+    cancelled_response = client.get("/orders?status=cancelled", headers=auth_headers)
+    customer_response = client.get(
+        f"/orders?customer_id={first_customer_id}",
+        headers=auth_headers,
+    )
+
+    assert [item["id"] for item in active_response.json()["items"]] == [first_order["id"]]
+    assert [item["id"] for item in cancelled_response.json()["items"]] == [second_order["id"]]
+    assert [item["id"] for item in customer_response.json()["items"]] == [first_order["id"]]
 
 
 def test_order_insufficient_stock_returns_conflict_and_keeps_inventory(
@@ -157,10 +209,15 @@ def test_invalid_order_request_returns_bad_request(
     assert response.json()["detail"]["code"] == "invalid_request"
 
 
-def create_customer(db_session: Session, organization_id: UUID) -> UUID:
+def create_customer(
+    db_session: Session,
+    organization_id: UUID,
+    *,
+    email_slug: str = "ada",
+) -> UUID:
     customer = CustomerService(db_session, organization_id).create_customer(
         full_name="Ada Lovelace",
-        email=f"ada-{organization_id}@example.com",
+        email=f"{email_slug}-{organization_id}@example.com",
         phone_number=None,
     )
     return customer.id
