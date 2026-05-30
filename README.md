@@ -17,6 +17,8 @@ the backend API, and the production-built frontend.
   Render account and production secret values.
 - Hosted frontend routing is configured in `frontend/vercel.json`; deployment
   still requires a Vercel project and the deployed backend public URL.
+- CI is configured in `.github/workflows/ci.yml` for backend tests and frontend
+  lint/format/build checks.
 
 Do not use the local example passwords or JWT secret outside local development.
 
@@ -325,11 +327,11 @@ variables, and the image tags.
 Automated publishing is available through the `Publish Backend Image` GitHub
 Actions workflow. Configure these GitHub repository variables and secrets first:
 
-| Name | Type | Value |
-| --- | --- | --- |
-| `DOCKERHUB_USERNAME` | Repository variable | Docker Hub username or organization. |
-| `DOCKERHUB_IMAGE` | Repository variable | Full image name, for example `namespace/stockade-backend`. |
-| `DOCKERHUB_TOKEN` | Repository secret | Docker Hub access token with push access. |
+| Name                 | Type                | Value                                                      |
+| -------------------- | ------------------- | ---------------------------------------------------------- |
+| `DOCKERHUB_USERNAME` | Repository variable | Docker Hub username or organization.                       |
+| `DOCKERHUB_IMAGE`    | Repository variable | Full image name, for example `namespace/stockade-backend`. |
+| `DOCKERHUB_TOKEN`    | Repository secret   | Docker Hub access token with push access.                  |
 
 The workflow publishes on semantic version tags such as `v0.1.0`, and can also
 be run manually with a version input. Both modes publish the version tag and
@@ -362,6 +364,8 @@ docker pull "$DOCKERHUB_NAMESPACE/stockade-backend:latest"
 
 The image contains no application secrets. Runtime configuration is supplied by
 environment variables.
+
+Docker Hub overview copy is prepared in `docs/dockerhub-overview.md`.
 
 ## Hosted Backend Deployment
 
@@ -456,7 +460,8 @@ Verify live wiring:
 
 ## Submission Checklist
 
-Fill this in after phases 19-21 are completed with real public artifacts.
+Fill this in after phases 19-21 are completed with real public artifacts. A
+longer handoff checklist is available in `docs/submission.md`.
 
 | Artifact                 | Value                        | Verified |
 | ------------------------ | ---------------------------- | -------- |
