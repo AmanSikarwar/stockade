@@ -206,6 +206,10 @@ td {
   font-variant-numeric: tabular-nums;
 }
 
+.muted-text {
+  color: var(--text-3);
+}
+
 .eyebrow {
   color: var(--accent-text);
   font-size: 0.72rem;

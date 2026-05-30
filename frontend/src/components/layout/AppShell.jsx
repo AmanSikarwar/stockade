@@ -8,6 +8,7 @@ import { Button } from "../ui/Button";
 const navItems = [
   { icon: "dashboard", label: "Dashboard", to: "/app" },
   { icon: "box", label: "Products", to: "/app/products" },
+  { icon: "customers", label: "Customers", to: "/app/customers" },
 ];
 
 export function AppShell() {
