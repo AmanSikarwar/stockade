@@ -3,9 +3,16 @@ import { Navigate, useLocation, useNavigate } from "react-router";
 
 import { ApiError, getApiBaseUrl } from "../api/client";
 import { useAuth } from "../auth/AuthContext";
+import { Logo } from "../components/brand/Logo";
+import { useNotifications } from "../components/feedback/NotificationContext";
+import { LoginHero } from "../components/illustrations/Illustrations";
+import { Alert } from "../components/ui/Alert";
+import { Button } from "../components/ui/Button";
+import { FormField } from "../components/ui/FormField";
 
 export default function LoginPage() {
   const { isAuthenticated, login } = useAuth();
+  const { notify } = useNotifications();
   const location = useLocation();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -26,6 +33,7 @@ export default function LoginPage() {
 
     try {
       await login({ email, password });
+      notify({ message: "Signed in successfully.", tone: "success", title: "Welcome back" });
       navigate(redirectPath, { replace: true });
     } catch (caughtError) {
       setError(
@@ -38,49 +46,55 @@ export default function LoginPage() {
 
   return (
     <main className="login-page">
-      <section className="login-panel" aria-labelledby="login-heading">
-        <p className="eyebrow">Stockade</p>
-        <h1 id="login-heading">Sign in</h1>
-        <p className="panel-copy">Use your organization account to manage inventory and orders.</p>
+      <section className="login-card" aria-labelledby="login-heading">
+        <div className="login-art" aria-hidden="true">
+          <Logo />
+          <LoginHero />
+        </div>
 
-        <form className="login-form" onSubmit={handleSubmit}>
-          <label>
-            Email
-            <input
+        <div className="login-panel">
+          <Logo />
+          <p className="eyebrow">Secure workspace</p>
+          <h1 id="login-heading">Sign in to Stockade</h1>
+          <p className="panel-copy">
+            Manage products, customers, orders, and inventory levels from one controlled workspace.
+          </p>
+
+          <form className="login-form" onSubmit={handleSubmit}>
+            <FormField
               autoComplete="email"
+              id="email"
               inputMode="email"
+              label="Email"
               name="email"
               onChange={(event) => setEmail(event.target.value)}
               required
               type="email"
               value={email}
             />
-          </label>
 
-          <label>
-            Password
-            <input
+            <FormField
               autoComplete="current-password"
+              id="password"
+              label="Password"
               name="password"
               onChange={(event) => setPassword(event.target.value)}
               required
               type="password"
               value={password}
             />
-          </label>
 
-          {error ? (
-            <div className="error-message" role="alert">
-              {error}
-            </div>
-          ) : null}
+            {error ? <Alert tone="danger">{error}</Alert> : null}
 
-          <button type="submit" className="primary-button" disabled={isSubmitting}>
-            {isSubmitting ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
+            <Button icon="login" isLoading={isSubmitting} type="submit">
+              Sign in
+            </Button>
+          </form>
 
-        <p className="api-footnote">API: {getApiBaseUrl()}</p>
+          <p className="api-footnote">
+            API endpoint <span className="t-num">{getApiBaseUrl()}</span>
+          </p>
+        </div>
       </section>
     </main>
   );

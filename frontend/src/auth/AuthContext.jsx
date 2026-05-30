@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { apiRequest } from "../api/client";
+import { queryClient } from "../api/queryClient";
 import {
   clearSession,
   getTokenExpiry,
@@ -16,6 +17,7 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(() => {
     clearSession();
+    queryClient.clear();
     setSession(null);
   }, []);
 
