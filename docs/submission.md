@@ -14,7 +14,18 @@ and frontend hosting are complete.
 
 ## Required Live Verification
 
-Run these checks against the public deployment:
+Run the live verifier against the public deployment:
+
+```bash
+STOCKADE_BACKEND_URL=https://backend.example.com \
+  STOCKADE_FRONTEND_URL=https://frontend.example.com \
+  STOCKADE_ADMIN_EMAIL=admin@example.com \
+  STOCKADE_ADMIN_PASSWORD=replace-with-production-password \
+  scripts/verify-live-deployment.sh
+```
+
+The script creates timestamped verification records in the target deployment and
+checks:
 
 1. Open the frontend URL.
 2. Log in with the seeded admin credentials.
@@ -34,6 +45,7 @@ Run these checks against the public deployment:
 STOCKADE_ENV_FILE=.env.example docker compose --env-file .env.example config
 PRE_COMMIT_HOME=.pre-commit-cache .venv/bin/pre-commit run --all-files
 npm --prefix frontend run build
+scripts/verify-local-stack.sh
 ```
 
 Run the backend suite against a disposable PostgreSQL database:

@@ -316,6 +316,14 @@ Validate Compose:
 STOCKADE_ENV_FILE=.env.example docker compose --env-file .env.example config
 ```
 
+Run the isolated local acceptance verifier. It starts its own Compose project on
+ports `18080` and `15173`, exercises login, product/customer/order/dashboard
+flows, and removes its temporary database volume when done:
+
+```bash
+scripts/verify-local-stack.sh
+```
+
 ## Docker Hub Publishing
 
 This phase requires a Docker Hub account with permission to publish the target
@@ -451,12 +459,19 @@ origins only.
 
 Verify live wiring:
 
-1. Open the Vercel production URL.
-2. Log in with the seeded admin.
-3. Create a product and customer.
-4. Create an order and confirm stock decrements.
-5. Cancel the order and confirm stock restores.
-6. Open the dashboard and confirm metrics reflect the live data.
+```bash
+STOCKADE_BACKEND_URL=https://backend.example.com \
+  STOCKADE_FRONTEND_URL=https://frontend.example.com \
+  STOCKADE_ADMIN_EMAIL=admin@example.com \
+  STOCKADE_ADMIN_PASSWORD=replace-with-production-password \
+  scripts/verify-live-deployment.sh
+```
+
+The live verifier opens frontend root and deep-link routes, checks backend
+readiness, OpenAPI, CORS, login, product/customer creation, insufficient-stock
+errors, order totals, stock decrement and restoration, order details, and
+dashboard metrics. It creates timestamped verification records in the target
+deployment.
 
 ## Submission Checklist
 
