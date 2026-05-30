@@ -1,6 +1,9 @@
+import { Link } from "react-router";
+
 import { emptyDashboardMetrics, useDashboardMetrics } from "../api/dashboard";
 import { getApiBaseUrl } from "../api/client";
 import { Alert } from "../components/ui/Alert";
+import { Button } from "../components/ui/Button";
 import { DataTable } from "../components/ui/DataTable";
 import { LoadingState } from "../components/ui/LoadingState";
 import { MetricCard } from "../components/ui/MetricCard";
@@ -36,6 +39,19 @@ export default function DashboardPage() {
       <PageHeader eyebrow="Dashboard" title="Operations overview">
         Real-time totals from the Stockade API. API base:{" "}
         <span className="t-num">{getApiBaseUrl()}</span>.
+        <div className="dashboard-actions">
+          <Button
+            icon="refresh"
+            isLoading={metricsQuery.isFetching}
+            onClick={() => metricsQuery.refetch()}
+            variant="secondary"
+          >
+            Refresh metrics
+          </Button>
+          <Link className="button button-primary" to="/app/orders">
+            Open orders
+          </Link>
+        </div>
       </PageHeader>
 
       {metricsQuery.isPending ? <LoadingState label="Loading dashboard..." /> : null}
@@ -49,7 +65,12 @@ export default function DashboardPage() {
       {!metricsQuery.isPending && !metricsQuery.isError ? (
         <>
           <div className="metric-grid">
-            <MetricCard icon="box" label="Products" value={dashboard.total_products} />
+            <MetricCard
+              icon="box"
+              label="Products"
+              meta={`${dashboard.total_active_products} active`}
+              value={dashboard.total_products}
+            />
             <MetricCard
               icon="warehouse"
               label="Active products"
@@ -73,6 +94,11 @@ export default function DashboardPage() {
           </div>
 
           <Panel
+            actions={
+              <Link className="button button-secondary" to="/app/products">
+                Review products
+              </Link>
+            }
             description={`${dashboard.low_stock_products_count} products are at or below ${dashboard.low_stock_threshold} units.`}
             title="Low-stock alerts"
           >
