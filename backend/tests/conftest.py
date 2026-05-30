@@ -18,6 +18,7 @@ os.environ.setdefault("JWT_SECRET_KEY", "test-secret-key-minimum-32-characters")
 os.environ.setdefault("DEFAULT_ORGANIZATION_NAME", "Test Organization")
 os.environ.setdefault("ADMIN_EMAIL", "admin@example.com")
 os.environ.setdefault("ADMIN_PASSWORD", "test-admin-password")
+os.environ.setdefault("CORS_ORIGINS", "http://localhost:5173")
 os.environ.setdefault("ENVIRONMENT", "test")
 
 from alembic import command  # noqa: E402

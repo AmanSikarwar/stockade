@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
@@ -22,6 +23,9 @@ HTTP_ERROR_CODES = {
     status.HTTP_405_METHOD_NOT_ALLOWED: "method_not_allowed",
     status.HTTP_409_CONFLICT: "conflict",
 }
+
+ALLOWED_CORS_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
+ALLOWED_CORS_HEADERS = ["Authorization", "Content-Type"]
 
 
 async def http_exception_handler(
@@ -86,6 +90,14 @@ def create_app() -> FastAPI:
         version="0.1.0",
         lifespan=lifespan,
     )
+    if settings.cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=settings.cors_origins,
+            allow_credentials=True,
+            allow_methods=ALLOWED_CORS_METHODS,
+            allow_headers=ALLOWED_CORS_HEADERS,
+        )
     app.add_exception_handler(RequestValidationError, request_validation_error_handler)
     app.add_exception_handler(StarletteHTTPException, http_exception_handler)
     app.include_router(api_router)

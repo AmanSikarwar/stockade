@@ -9,9 +9,14 @@ export default defineConfig([
   },
   js.configs.recommended,
   {
-    files: ["**/*.js"],
+    files: ["**/*.{js,jsx}"],
     languageOptions: {
       ecmaVersion: "latest",
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true,
+        },
+      },
       sourceType: "module",
       globals: {
         ...globals.browser,
