@@ -87,6 +87,89 @@ def test_duplicate_product_sku_returns_conflict(
     assert duplicate_response.json()["detail"]["code"] == "duplicate_sku"
 
 
+def test_update_product_duplicate_sku_returns_conflict(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    first_response = client.post(
+        "/products",
+        headers=auth_headers,
+        json={
+            "name": "Packing Tape",
+            "sku": "TAPE-001",
+            "price": "4.50",
+            "quantity_in_stock": 12,
+        },
+    )
+    second_response = client.post(
+        "/products",
+        headers=auth_headers,
+        json={
+            "name": "Shipping Box",
+            "sku": "BOX-001",
+            "price": "2.00",
+            "quantity_in_stock": 8,
+        },
+    )
+
+    response = client.put(
+        f"/products/{second_response.json()['id']}",
+        headers=auth_headers,
+        json={"sku": first_response.json()["sku"]},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"]["code"] == "duplicate_sku"
+
+
+def test_products_list_paginates_and_filters(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    products = [
+        {"name": "Packing Tape", "sku": "TAPE-001", "price": "4.50", "quantity_in_stock": 12},
+        {"name": "Shipping Tape", "sku": "TAPE-002", "price": "5.00", "quantity_in_stock": 6},
+        {"name": "Shipping Box", "sku": "BOX-001", "price": "2.00", "quantity_in_stock": 8},
+    ]
+    created_ids = [
+        client.post("/products", headers=auth_headers, json=product).json()["id"]
+        for product in products
+    ]
+
+    filtered_response = client.get("/products?q=tape&limit=1&offset=1", headers=auth_headers)
+
+    assert filtered_response.status_code == 200
+    payload = filtered_response.json()
+    assert payload["total"] == 2
+    assert payload["limit"] == 1
+    assert payload["offset"] == 1
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["id"] in created_ids
+    assert "TAPE" in payload["items"][0]["sku"]
+
+
+def test_product_missing_resource_paths_return_not_found(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    missing_id = "00000000-0000-0000-0000-000000000001"
+
+    get_response = client.get(f"/products/{missing_id}", headers=auth_headers)
+    update_response = client.put(
+        f"/products/{missing_id}",
+        headers=auth_headers,
+        json={"name": "Missing"},
+    )
+    delete_response = client.delete(f"/products/{missing_id}", headers=auth_headers)
+
+    assert get_response.status_code == 404
+    assert get_response.json()["detail"]["code"] == "product_not_found"
+    assert update_response.status_code == 404
+    assert update_response.json()["detail"]["code"] == "product_not_found"
+    assert delete_response.status_code == 404
+    assert delete_response.json()["detail"]["code"] == "product_not_found"
+
+
 def test_invalid_product_request_returns_bad_request(
     client: TestClient,
     auth_headers: dict[str, str],

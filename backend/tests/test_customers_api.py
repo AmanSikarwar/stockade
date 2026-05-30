@@ -71,6 +71,47 @@ def test_duplicate_customer_email_returns_conflict(
     assert duplicate_response.json()["detail"]["code"] == "duplicate_email"
 
 
+def test_customers_list_paginates_and_filters(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    customers = [
+        {"full_name": "Ada Lovelace", "email": "ada@example.com", "phone_number": None},
+        {"full_name": "Ada Byron", "email": "byron@example.com", "phone_number": None},
+        {"full_name": "Grace Hopper", "email": "grace@example.com", "phone_number": None},
+    ]
+    created_ids = [
+        client.post("/customers", headers=auth_headers, json=customer).json()["id"]
+        for customer in customers
+    ]
+
+    response = client.get("/customers?q=ada&limit=1&offset=1", headers=auth_headers)
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["total"] == 2
+    assert payload["limit"] == 1
+    assert payload["offset"] == 1
+    assert len(payload["items"]) == 1
+    assert payload["items"][0]["id"] in created_ids
+    assert "Ada" in payload["items"][0]["full_name"]
+
+
+def test_customer_missing_resource_paths_return_not_found(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    missing_id = "00000000-0000-0000-0000-000000000001"
+
+    get_response = client.get(f"/customers/{missing_id}", headers=auth_headers)
+    delete_response = client.delete(f"/customers/{missing_id}", headers=auth_headers)
+
+    assert get_response.status_code == 404
+    assert get_response.json()["detail"]["code"] == "customer_not_found"
+    assert delete_response.status_code == 404
+    assert delete_response.json()["detail"]["code"] == "customer_not_found"
+
+
 def test_invalid_customer_request_returns_bad_request(
     client: TestClient,
     auth_headers: dict[str, str],

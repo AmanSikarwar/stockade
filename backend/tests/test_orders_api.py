@@ -209,6 +209,29 @@ def test_invalid_order_request_returns_bad_request(
     assert response.json()["detail"]["code"] == "invalid_request"
 
 
+def test_order_cancel_missing_order_returns_not_found(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    response = client.delete(
+        "/orders/00000000-0000-0000-0000-000000000001",
+        headers=auth_headers,
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["code"] == "order_not_found"
+
+
+def test_order_invalid_status_filter_returns_bad_request(
+    client: TestClient,
+    auth_headers: dict[str, str],
+) -> None:
+    response = client.get("/orders?status=unknown", headers=auth_headers)
+
+    assert response.status_code == 400
+    assert response.json()["detail"]["code"] == "invalid_request"
+
+
 def create_customer(
     db_session: Session,
     organization_id: UUID,

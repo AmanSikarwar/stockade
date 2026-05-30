@@ -1,9 +1,12 @@
+from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
-from uuid import UUID
+from threading import Barrier
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.engine import Engine
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.models.order import Order
 from app.models.organization import Organization
@@ -182,6 +185,73 @@ def test_cancel_order_is_idempotent(
     order_service.cancel_order(order.id)
 
     assert db_session.get(Product, tape.id).quantity_in_stock == 10
+
+
+def test_concurrent_orders_cannot_oversell(test_engine: Engine) -> None:
+    session_factory = sessionmaker(
+        bind=test_engine,
+        class_=Session,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+    test_suffix = uuid4()
+    with session_factory() as setup_session:
+        organization = Organization(display_name=f"Concurrent Test {test_suffix}")
+        setup_session.add(organization)
+        setup_session.commit()
+        setup_session.refresh(organization)
+        organization_id = organization.id
+        customer_id = (
+            CustomerService(setup_session, organization_id)
+            .create_customer(
+                full_name="Ada Lovelace",
+                email=f"ada-{test_suffix}@example.com",
+                phone_number=None,
+            )
+            .id
+        )
+        product_id = (
+            ProductService(setup_session, organization_id)
+            .create_product(
+                name="Limited Tape",
+                sku=f"TAPE-{test_suffix}",
+                price=Decimal("3.25"),
+                quantity_in_stock=1,
+            )
+            .id
+        )
+
+    start_line = Barrier(2)
+
+    def place_order() -> str:
+        with session_factory() as order_session:
+            start_line.wait(timeout=10)
+            try:
+                OrderService(order_session, organization_id).create_order(
+                    customer_id=customer_id,
+                    line_items=[OrderLineInput(product_id=product_id, quantity=1)],
+                )
+            except InsufficientStockError:
+                return "insufficient"
+            return "placed"
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(place_order) for _ in range(2)]
+        results = sorted(future.result(timeout=15) for future in futures)
+
+    with session_factory() as verify_session:
+        product = verify_session.get(Product, product_id)
+        successful_orders = verify_session.scalar(
+            select(func.count(Order.id)).where(
+                Order.organization_id == organization_id,
+                Order.customer_id == customer_id,
+            )
+        )
+
+    assert results == ["insufficient", "placed"]
+    assert product is not None
+    assert product.quantity_in_stock == 0
+    assert successful_orders == 1
 
 
 def create_customer(db_session: Session, organization_id: UUID) -> UUID:
