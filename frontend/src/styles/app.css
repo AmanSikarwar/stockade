@@ -296,6 +296,17 @@ td {
   background: var(--accent-soft);
 }
 
+.button-danger {
+  color: var(--danger-fg);
+  background: var(--danger-bg);
+  border-color: var(--danger-line);
+}
+
+.button-danger:hover {
+  color: #ffffff;
+  background: var(--danger);
+}
+
 .icon-button {
   display: inline-flex;
   width: 32px;
@@ -491,7 +502,8 @@ td {
   padding: 30px;
 }
 
-.dashboard {
+.dashboard,
+.page-stack {
   display: grid;
   gap: 22px;
 }
@@ -517,6 +529,59 @@ td {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(220px, 380px) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.checkbox-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-2);
+  font-size: 0.9rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.checkbox-control input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.form-panel {
+  border-color: var(--accent-soft-line);
+  background: linear-gradient(180deg, var(--surface), var(--surface-2));
+}
+
+.entity-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.entity-form .alert,
+.form-actions {
+  grid-column: 1 / -1;
+}
+
+.form-actions,
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.row-actions .button {
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: 0.84rem;
 }
 
 .metric-grid {
@@ -832,7 +897,9 @@ td {
     padding: 20px;
   }
 
-  .metric-grid {
+  .metric-grid,
+  .entity-form,
+  .toolbar {
     grid-template-columns: 1fr;
   }
 

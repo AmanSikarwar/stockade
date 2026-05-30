@@ -5,7 +5,10 @@ import { Logo } from "../brand/Logo";
 import { Icon } from "../icons/Icon";
 import { Button } from "../ui/Button";
 
-const navItems = [{ icon: "dashboard", label: "Dashboard", to: "/app" }];
+const navItems = [
+  { icon: "dashboard", label: "Dashboard", to: "/app" },
+  { icon: "box", label: "Products", to: "/app/products" },
+];
 
 export function AppShell() {
   const { logout, user } = useAuth();

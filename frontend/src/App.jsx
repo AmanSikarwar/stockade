@@ -4,6 +4,7 @@ import { useAuth } from "./auth/AuthContext";
 import { AppShell } from "./components/layout/AppShell";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
+import ProductsPage from "./pages/ProductsPage";
 
 export default function App() {
   return (
@@ -19,6 +20,7 @@ export default function App() {
         }
       >
         <Route index element={<DashboardPage />} />
+        <Route path="products" element={<ProductsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
