@@ -5,6 +5,7 @@ import { AppShell } from "./components/layout/AppShell";
 import CustomersPage from "./pages/CustomersPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
+import OrdersPage, { OrderDetailPage } from "./pages/OrdersPage";
 import ProductsPage from "./pages/ProductsPage";
 
 export default function App() {
@@ -22,6 +23,8 @@ export default function App() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="customers" element={<CustomersPage />} />
+        <Route path="orders" element={<OrdersPage />} />
+        <Route path="orders/:orderId" element={<OrderDetailPage />} />
         <Route path="products" element={<ProductsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

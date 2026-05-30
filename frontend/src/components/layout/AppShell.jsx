@@ -9,6 +9,7 @@ const navItems = [
   { icon: "dashboard", label: "Dashboard", to: "/app" },
   { icon: "box", label: "Products", to: "/app/products" },
   { icon: "customers", label: "Customers", to: "/app/customers" },
+  { icon: "orders", label: "Orders", to: "/app/orders" },
 ];
 
 export function AppShell() {

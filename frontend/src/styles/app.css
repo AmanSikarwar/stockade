@@ -588,6 +588,95 @@ td {
   font-size: 0.84rem;
 }
 
+.table-link {
+  color: var(--accent-text);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.table-link:hover {
+  text-decoration: underline;
+}
+
+.order-form {
+  display: grid;
+  gap: 18px;
+}
+
+.line-editor {
+  display: grid;
+  gap: 12px;
+}
+
+.line-editor-head,
+.order-line,
+.order-summary {
+  display: grid;
+  gap: 12px;
+  align-items: end;
+}
+
+.line-editor-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.line-editor-head h3 {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.line-editor-head p {
+  color: var(--text-2);
+}
+
+.order-line {
+  grid-template-columns: minmax(220px, 1fr) 130px 160px auto;
+  padding: 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.line-total,
+.order-summary {
+  border: 1px solid var(--accent-soft-line);
+  border-radius: var(--r-md);
+  background: var(--accent-soft);
+}
+
+.line-total {
+  display: grid;
+  gap: 2px;
+  padding: 9px 12px;
+}
+
+.line-total span,
+.order-summary span {
+  color: var(--text-3);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.line-total strong {
+  color: var(--accent-text);
+  font-size: 1rem;
+}
+
+.order-summary {
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 14px 16px;
+}
+
+.order-summary strong {
+  color: var(--accent-text);
+  font-size: 1.25rem;
+}
+
+.order-detail-metrics .metric-card {
+  grid-template-columns: 1fr;
+}
+
 .metric-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -901,8 +990,11 @@ td {
     padding: 20px;
   }
 
-  .metric-grid,
   .entity-form,
+  .line-editor-head,
+  .metric-grid,
+  .order-line,
+  .order-summary,
   .toolbar {
     grid-template-columns: 1fr;
   }
