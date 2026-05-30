@@ -1,0 +1,110 @@
+from uuid import UUID
+
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
+
+from app.models.customer import Customer
+from app.repositories.customers import CustomerRepository
+
+
+class CustomerError(Exception):
+    """Base customer-domain exception."""
+
+
+class CustomerNotFoundError(CustomerError):
+    pass
+
+
+class DuplicateCustomerEmailError(CustomerError):
+    pass
+
+
+class CustomerDeleteConflictError(CustomerError):
+    pass
+
+
+class CustomerValidationError(CustomerError):
+    pass
+
+
+class CustomerService:
+    def __init__(self, session: Session, organization_id: UUID) -> None:
+        self.session = session
+        self.repository = CustomerRepository(session, organization_id)
+
+    def create_customer(
+        self,
+        *,
+        full_name: str,
+        email: str,
+        phone_number: str | None,
+    ) -> Customer:
+        values = {
+            "full_name": normalize_full_name(full_name),
+            "email": normalize_email(email),
+            "phone_number": normalize_phone_number(phone_number),
+        }
+        if self.repository.get_by_email(values["email"]) is not None:
+            raise DuplicateCustomerEmailError("Customer email already exists")
+
+        customer = self.repository.create(**values)
+        return self._commit_and_refresh(customer)
+
+    def list_customers(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        search: str | None = None,
+    ) -> tuple[list[Customer], int]:
+        normalized_search = search.strip() if search else None
+        return self.repository.list(limit=limit, offset=offset, search=normalized_search)
+
+    def get_customer(self, customer_id: UUID) -> Customer:
+        customer = self.repository.get_by_id(customer_id)
+        if customer is None:
+            raise CustomerNotFoundError("Customer not found")
+        return customer
+
+    def delete_customer(self, customer_id: UUID) -> None:
+        customer = self.get_customer(customer_id)
+        if self.repository.has_orders(customer.id):
+            raise CustomerDeleteConflictError("Customer has orders and cannot be deleted")
+
+        self.session.delete(customer)
+        try:
+            self.session.commit()
+        except IntegrityError as exc:
+            self.session.rollback()
+            raise CustomerDeleteConflictError("Customer has orders and cannot be deleted") from exc
+
+    def _commit_and_refresh(self, customer: Customer) -> Customer:
+        try:
+            self.session.commit()
+        except IntegrityError as exc:
+            self.session.rollback()
+            raise DuplicateCustomerEmailError("Customer email already exists") from exc
+        self.session.refresh(customer)
+        return customer
+
+
+def normalize_full_name(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise CustomerValidationError("Customer name is required")
+    return normalized
+
+
+def normalize_email(value: str) -> str:
+    normalized = value.strip().lower()
+    if not normalized:
+        raise CustomerValidationError("Customer email is required")
+    return normalized
+
+
+def normalize_phone_number(value: str | None) -> str | None:
+    if value is None:
+        return None
+
+    normalized = value.strip()
+    return normalized or None
