@@ -10,12 +10,13 @@ the backend API, and the production-built frontend.
 ## Current Status
 
 - Local full-stack orchestration is complete and verified.
-- Backend image publishing requires Docker Hub account access and a target
-  namespace.
-- Hosted backend deployment requires a Render account, a connected repository,
-  and production secrets.
-- Hosted frontend deployment requires a Vercel account and the deployed backend
-  public URL.
+- Backend image publishing automation is configured in
+  `.github/workflows/publish-backend-image.yml`; it still requires Docker Hub
+  repository variables and a token.
+- Hosted backend deployment is configured in `render.yaml`; it still requires a
+  Render account and production secret values.
+- Hosted frontend routing is configured in `frontend/vercel.json`; deployment
+  still requires a Vercel project and the deployed backend public URL.
 
 Do not use the local example passwords or JWT secret outside local development.
 
@@ -321,6 +322,19 @@ repository. Create a public repository such as
 to describe Stockade, the local Compose workflow, required environment
 variables, and the image tags.
 
+Automated publishing is available through the `Publish Backend Image` GitHub
+Actions workflow. Configure these GitHub repository variables and secrets first:
+
+| Name | Type | Value |
+| --- | --- | --- |
+| `DOCKERHUB_USERNAME` | Repository variable | Docker Hub username or organization. |
+| `DOCKERHUB_IMAGE` | Repository variable | Full image name, for example `namespace/stockade-backend`. |
+| `DOCKERHUB_TOKEN` | Repository secret | Docker Hub access token with push access. |
+
+The workflow publishes on semantic version tags such as `v0.1.0`, and can also
+be run manually with a version input. Both modes publish the version tag and
+`latest`.
+
 Publish backend tags:
 
 ```bash
@@ -356,13 +370,16 @@ database. The deployment guide was written against the current Render docs for
 Docker web services, Blueprints, environment variables, health checks, and
 PostgreSQL wiring.
 
+The repo includes `render.yaml` for a Render Blueprint. It defines a Docker web
+service, a managed PostgreSQL database, the `/ready` health check, generated JWT
+secret, and dashboard-provided values for deployment-specific secrets.
+
 Required Render settings:
 
 - Service type: Web Service
 - Runtime: Docker
 - Root directory: `backend`
-- Dockerfile path: `backend/Dockerfile` if the platform asks from repo root, or
-  `Dockerfile` if `backend` is configured as root
+- Blueprint file: `render.yaml`
 - Health check path: `/ready`
 - Bind host: `0.0.0.0`
 - Port: set `BACKEND_PORT` to the platform web port, or let the platform set
@@ -387,6 +404,10 @@ CORS_ORIGINS=REPLACE_WITH_DEPLOYED_FRONTEND_ORIGIN
 LOW_STOCK_THRESHOLD=5
 ```
 
+The Blueprint marks `DEFAULT_ORGANIZATION_NAME`, `ADMIN_EMAIL`,
+`ADMIN_PASSWORD`, and `CORS_ORIGINS` as unsynced values so they are entered in
+Render and not stored in Git.
+
 On first boot, `backend/scripts/start.sh` applies Alembic migrations and runs the
 idempotent seed. Verify:
 
@@ -403,6 +424,9 @@ is idempotent and does not overwrite an existing admin password on later boots.
 
 The recommended frontend path is Vercel. The deployment guide was written
 against the current Vercel docs for Vite projects and environment variables.
+
+The repo includes `frontend/vercel.json` to route deep links back to
+`index.html` for React Router.
 
 Required Vercel settings:
 

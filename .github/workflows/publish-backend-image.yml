@@ -1,0 +1,68 @@
+name: Publish Backend Image
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Image version tag, for example 0.1.0"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Build and publish backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Docker Hub configuration
+        run: |
+          if [ -z "${{ vars.DOCKERHUB_USERNAME }}" ]; then
+            echo "Set repository variable DOCKERHUB_USERNAME."
+            exit 1
+          fi
+          if [ -z "${{ vars.DOCKERHUB_IMAGE }}" ]; then
+            echo "Set repository variable DOCKERHUB_IMAGE, for example namespace/stockade-backend."
+            exit 1
+          fi
+          if [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "Set repository secret DOCKERHUB_TOKEN."
+            exit 1
+          fi
+
+      - name: Checkout repository
+        uses: actions/checkout@v6.0.2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4.2.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4.1.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4.1.0
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6.1.0
+        with:
+          images: ${{ vars.DOCKERHUB_IMAGE }}
+          tags: |
+            type=raw,value=${{ inputs.version }},enable=${{ github.event_name == 'workflow_dispatch' }}
+            type=semver,pattern={{version}},value=${{ github.ref_name }},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=raw,value=latest
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v7.2.0
+        with:
+          context: ./backend
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

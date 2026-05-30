@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: stockade-backend
+    runtime: docker
+    plan: free
+    rootDir: backend
+    healthCheckPath: /ready
+    envVars:
+      - key: APP_NAME
+        value: Stockade API
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: BACKEND_HOST
+        value: 0.0.0.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: stockade-postgres
+          property: connectionString
+      - key: JWT_SECRET_KEY
+        generateValue: true
+      - key: JWT_ALGORITHM
+        value: HS256
+      - key: ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: DEFAULT_ORGANIZATION_NAME
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false
+      - key: LOW_STOCK_THRESHOLD
+        value: "5"
+
+databases:
+  - name: stockade-postgres
+    plan: free
+    databaseName: stockade

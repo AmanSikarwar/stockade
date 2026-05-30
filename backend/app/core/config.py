@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -35,6 +35,17 @@ class Settings(BaseSettings):
     @classmethod
     def normalize_log_level(cls, value: str) -> str:
         return value.upper()
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: Any) -> Any:
+        if not isinstance(value, str):
+            return value
+        if value.startswith("postgres://"):
+            return f"postgresql+psycopg://{value.removeprefix('postgres://')}"
+        if value.startswith("postgresql://"):
+            return f"postgresql+psycopg://{value.removeprefix('postgresql://')}"
+        return value
 
     @field_validator("cors_origins", mode="before")
     @classmethod
