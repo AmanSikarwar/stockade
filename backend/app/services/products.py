@@ -40,18 +40,29 @@ class ProductService:
         sku: str,
         price: Decimal,
         quantity_in_stock: int,
+        category_id: UUID | None = None,
+        reorder_point: int | None = None,
     ) -> Product:
         values = {
             "name": normalize_name(name),
             "sku": normalize_sku(sku),
             "price": normalize_price(price),
             "quantity_in_stock": normalize_quantity(quantity_in_stock),
+            "reorder_point": normalize_reorder_point(reorder_point),
+            "category_id": self._validate_category(category_id),
         }
         if self.repository.get_by_sku(values["sku"]) is not None:
             raise DuplicateProductSkuError("Product SKU already exists")
 
         product = self.repository.create(**values)
         return self._commit_and_refresh(product)
+
+    def _validate_category(self, category_id: UUID | None) -> UUID | None:
+        if category_id is None:
+            return None
+        if self.repository.get_category(category_id) is None:
+            raise ProductValidationError("Category not found")
+        return category_id
 
     def list_products(
         self,
@@ -62,6 +73,7 @@ class ProductService:
         include_inactive: bool = False,
         sort_by: str | None = None,
         sort_dir: str = "desc",
+        category_id: UUID | None = None,
     ) -> tuple[list[Product], int]:
         normalized_search = search.strip() if search else None
         return self.repository.list(
@@ -71,6 +83,7 @@ class ProductService:
             include_inactive=include_inactive,
             sort_by=sort_by,
             sort_dir=sort_dir,
+            category_id=category_id,
         )
 
     def get_product(self, product_id: UUID) -> Product:
@@ -90,6 +103,9 @@ class ProductService:
             existing = self.repository.get_by_sku(normalized["sku"])
             if existing is not None and existing.id != product.id:
                 raise DuplicateProductSkuError("Product SKU already exists")
+
+        if "category_id" in normalized:
+            normalized["category_id"] = self._validate_category(normalized["category_id"])
 
         for field_name, value in normalized.items():
             setattr(product, field_name, value)
@@ -126,6 +142,10 @@ def normalize_product_changes(changes: Mapping[str, Any]) -> dict[str, Any]:
             normalized[field_name] = normalize_price(value)
         elif field_name == "quantity_in_stock":
             normalized[field_name] = normalize_quantity(value)
+        elif field_name == "reorder_point":
+            normalized[field_name] = normalize_reorder_point(value)
+        elif field_name == "category_id":
+            normalized[field_name] = value
     return normalized
 
 
@@ -157,3 +177,12 @@ def normalize_quantity(value: int) -> int:
     if quantity < 0:
         raise ProductValidationError("Product quantity must be non-negative")
     return quantity
+
+
+def normalize_reorder_point(value: int | None) -> int | None:
+    if value is None:
+        return None
+    point = int(value)
+    if point < 0:
+        raise ProductValidationError("Reorder point must be non-negative")
+    return point

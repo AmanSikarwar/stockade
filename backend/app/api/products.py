@@ -55,6 +55,7 @@ def list_products(
     include_inactive: bool = False,
     sort_by: ProductSortField | None = None,
     sort_dir: SortDirection = "desc",
+    category_id: UUID | None = None,
 ) -> ProductListResponse:
     service = ProductService(session, current_user.organization_id)
     products, total = service.list_products(
@@ -64,6 +65,7 @@ def list_products(
         include_inactive=include_inactive,
         sort_by=sort_by,
         sort_dir=sort_dir,
+        category_id=category_id,
     )
     return ProductListResponse(
         items=[ProductResponse.model_validate(product) for product in products],

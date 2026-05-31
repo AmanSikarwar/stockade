@@ -64,10 +64,13 @@ class DashboardRepository(OrganizationScopedRepository):
         )
 
     def low_stock_products(self, *, threshold: int, limit: int) -> tuple[list[Product], int]:
+        # A product is low on stock when its on-hand quantity is at or below its own
+        # reorder point, falling back to the organization-wide threshold when unset.
+        effective_threshold = func.coalesce(Product.reorder_point, threshold)
         conditions = [
             Product.organization_id == self.organization_id,
             Product.active.is_(True),
-            Product.quantity_in_stock <= threshold,
+            Product.quantity_in_stock <= effective_threshold,
         ]
         total = self.session.scalar(select(func.count(Product.id)).where(*conditions)) or 0
         products = list(

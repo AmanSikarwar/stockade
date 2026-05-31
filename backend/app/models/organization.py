@@ -9,6 +9,7 @@ from app.db.base import Base
 from app.models.mixins import IdMixin, TimestampMixin
 
 if TYPE_CHECKING:
+    from app.models.category import Category
     from app.models.customer import Customer
     from app.models.order import Order
     from app.models.product import Product
@@ -24,3 +25,4 @@ class Organization(IdMixin, TimestampMixin, Base):
     products: Mapped[list[Product]] = relationship(back_populates="organization")
     customers: Mapped[list[Customer]] = relationship(back_populates="organization")
     orders: Mapped[list[Order]] = relationship(back_populates="organization")
+    categories: Mapped[list[Category]] = relationship(back_populates="organization")

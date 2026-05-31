@@ -10,6 +10,7 @@ class DashboardLowStockProductResponse(BaseModel):
     sku: str
     price: Decimal
     quantity_in_stock: int
+    reorder_point: int | None = None
 
     @field_serializer("price")
     def serialize_price(self, value: Decimal) -> str:

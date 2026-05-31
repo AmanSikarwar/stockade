@@ -84,6 +84,7 @@ def test_dashboard_returns_metrics_and_low_stock_products(
             "sku": "LOW-001",
             "price": "3.25",
             "quantity_in_stock": 2,
+            "reorder_point": None,
         }
     ]
     assert active_order.status == "active"

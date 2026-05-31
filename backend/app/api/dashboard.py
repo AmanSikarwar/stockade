@@ -38,6 +38,7 @@ def get_dashboard_metrics(
                 sku=product.sku,
                 price=product.price,
                 quantity_in_stock=product.quantity_in_stock,
+                reorder_point=product.reorder_point,
             )
             for product in metrics.low_stock_products
         ],

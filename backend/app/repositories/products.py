@@ -4,6 +4,7 @@ from uuid import UUID
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
+from app.models.category import Category
 from app.models.order import OrderLineItem
 from app.models.product import Product
 from app.repositories.base import OrganizationScopedRepository, resolve_order
@@ -30,10 +31,13 @@ class ProductRepository(OrganizationScopedRepository):
         include_inactive: bool,
         sort_by: str | None = None,
         sort_dir: str = "desc",
+        category_id: UUID | None = None,
     ) -> tuple[list[Product], int]:
         conditions = [Product.organization_id == self.organization_id]
         if not include_inactive:
             conditions.append(Product.active.is_(True))
+        if category_id is not None:
+            conditions.append(Product.category_id == category_id)
         if search:
             pattern = f"%{search}%"
             conditions.append(or_(Product.name.ilike(pattern), Product.sku.ilike(pattern)))
@@ -68,6 +72,14 @@ class ProductRepository(OrganizationScopedRepository):
             )
         ).one_or_none()
 
+    def get_category(self, category_id: UUID) -> Category | None:
+        return self.session.scalars(
+            select(Category).where(
+                Category.id == category_id,
+                Category.organization_id == self.organization_id,
+            )
+        ).one_or_none()
+
     def create(
         self,
         *,
@@ -75,6 +87,8 @@ class ProductRepository(OrganizationScopedRepository):
         sku: str,
         price: Decimal,
         quantity_in_stock: int,
+        category_id: UUID | None = None,
+        reorder_point: int | None = None,
     ) -> Product:
         product = Product(
             organization_id=self.organization_id,
@@ -82,6 +96,8 @@ class ProductRepository(OrganizationScopedRepository):
             sku=sku,
             price=price,
             quantity_in_stock=quantity_in_stock,
+            category_id=category_id,
+            reorder_point=reorder_point,
             active=True,
         )
         self.session.add(product)
