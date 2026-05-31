@@ -39,6 +39,8 @@ coverage/
 frontend/dist/
 frontend/build/
 
+.Claude
+
 # Docker and local data
 *.pid
 docker-compose.override.yml
