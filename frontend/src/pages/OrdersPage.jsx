@@ -15,10 +15,12 @@ import { DataTable } from "../components/ui/DataTable";
 import { ProductCell } from "../components/ui/EntityCell";
 import { IconButton } from "../components/ui/IconButton";
 import { LoadingState } from "../components/ui/LoadingState";
+import { ConfirmModal } from "../components/ui/Modal";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Pagination } from "../components/ui/Pagination";
 import { Pill } from "../components/ui/Pill";
 import { Select } from "../components/ui/Select";
+import { TableSkeleton } from "../components/ui/Skeleton";
 import { Tabs } from "../components/ui/Tabs";
 import { formatCurrency, formatDateTime } from "../lib/format";
 
@@ -40,9 +42,10 @@ export default function OrdersPage() {
   const { notify } = useNotifications();
   const navigate = useNavigate();
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [confirmingCancelId, setConfirmingCancelId] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [offset, setOffset] = useState(0);
+  const [sort, setSort] = useState({ by: undefined, dir: "desc" });
   const [searchParams, setSearchParams] = useSearchParams();
 
   // Open the builder when arriving from the topbar "New order" action.
@@ -59,6 +62,8 @@ export default function OrdersPage() {
     limit: PAGE_SIZE,
     offset,
     status: statusFilter === "all" ? undefined : statusFilter,
+    sort_by: sort.by,
+    sort_dir: sort.dir,
   });
   const customersQuery = useCustomers({ limit: 100, offset: 0 });
   const createOrder = useCreateOrder();
@@ -73,6 +78,14 @@ export default function OrdersPage() {
 
   function selectTab(value) {
     setStatusFilter(value);
+    setOffset(0);
+  }
+
+  function handleSort(key) {
+    setSort((current) => ({
+      by: key,
+      dir: current.by === key && current.dir === "asc" ? "desc" : "asc",
+    }));
     setOffset(0);
   }
 
@@ -101,11 +114,13 @@ export default function OrdersPage() {
     {
       header: "Date",
       key: "created_at",
+      sortable: true,
       render: (order) => <span className="text-2">{formatDateTime(order.created_at)}</span>,
     },
     {
       header: "Total",
       key: "total_amount",
+      sortable: true,
       align: "right",
       cellClassName: "num cell-strong",
       render: (order) => formatCurrency(order.total_amount),
@@ -113,6 +128,7 @@ export default function OrdersPage() {
     {
       header: "Status",
       key: "status",
+      sortable: true,
       render: (order) => (
         <Pill tone={statusTone(order.status)}>
           {order.status === "active" ? "Active" : "Cancelled"}
@@ -123,49 +139,22 @@ export default function OrdersPage() {
       header: "",
       key: "actions",
       align: "right",
-      render: (order) => {
-        const isConfirming = confirmingCancelId === order.id;
-        if (order.status !== "active") {
-          return (
-            <div className="row-actions">
-              <Link className="btn btn-secondary btn-sm" to={`/app/orders/${order.id}`}>
-                View
-              </Link>
-            </div>
-          );
-        }
-        if (isConfirming) {
-          return (
-            <div className="row-actions">
-              <Button
-                size="sm"
-                variant="danger"
-                isLoading={cancelOrder.isPending && cancelOrder.variables === order.id}
-                onClick={() => handleCancelOrder(order)}
-              >
-                Confirm
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => setConfirmingCancelId(null)}>
-                Keep
-              </Button>
-            </div>
-          );
-        }
-        return (
-          <div className="row-actions">
-            <Link className="btn btn-secondary btn-sm" to={`/app/orders/${order.id}`}>
-              View
-            </Link>
+      render: (order) => (
+        <div className="row-actions">
+          <Link className="btn btn-secondary btn-sm" to={`/app/orders/${order.id}`}>
+            View
+          </Link>
+          {order.status === "active" ? (
             <IconButton
               icon="close"
               label={`Cancel order ${order.id.slice(0, 8)}`}
               variant="secondary"
               size="sm"
-              onClick={() => setConfirmingCancelId(order.id)}
+              onClick={() => setCancelTarget(order)}
             />
-          </div>
-        );
-      },
+          ) : null}
+        </div>
+      ),
     },
   ];
 
@@ -180,14 +169,15 @@ export default function OrdersPage() {
     navigate(`/app/orders/${order.id}`);
   }
 
-  async function handleCancelOrder(order) {
+  async function handleCancelOrder() {
+    if (!cancelTarget) return;
     try {
-      await cancelOrder.mutateAsync(order.id);
-      setConfirmingCancelId(null);
+      await cancelOrder.mutateAsync(cancelTarget.id);
       notify({
-        message: `Order #${order.id.slice(0, 8)} cancelled · stock restored.`,
+        message: `Order #${cancelTarget.id.slice(0, 8)} cancelled · stock restored.`,
         tone: "success",
       });
+      setCancelTarget(null);
     } catch (error) {
       notify({
         message: error.message || "Unable to cancel order.",
@@ -229,7 +219,7 @@ export default function OrdersPage() {
         }
       >
         {ordersQuery.isPending ? (
-          <LoadingState label="Loading orders..." />
+          <TableSkeleton columns={columns} />
         ) : ordersQuery.isError ? (
           <div className="card-pad">
             <Alert tone="danger" title="Orders unavailable">
@@ -240,6 +230,8 @@ export default function OrdersPage() {
           <DataTable
             columns={columns}
             rows={rows}
+            sort={sort}
+            onSort={handleSort}
             empty={
               <div className="empty-state">
                 <EmptyOrders />
@@ -253,6 +245,18 @@ export default function OrdersPage() {
           />
         )}
       </Card>
+
+      {cancelTarget ? (
+        <ConfirmModal
+          title="Cancel this order?"
+          message={`Order #${cancelTarget.id.slice(0, 8)} will be cancelled and its reserved stock returned to inventory.`}
+          confirmLabel="Cancel order"
+          cancelLabel="Keep order"
+          isLoading={cancelOrder.isPending}
+          onConfirm={handleCancelOrder}
+          onCancel={() => setCancelTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }

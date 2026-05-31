@@ -10,10 +10,11 @@ import { DataTable } from "../components/ui/DataTable";
 import { PersonCell } from "../components/ui/EntityCell";
 import { FormField } from "../components/ui/FormField";
 import { IconButton } from "../components/ui/IconButton";
-import { LoadingState } from "../components/ui/LoadingState";
+import { ConfirmModal } from "../components/ui/Modal";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Pagination } from "../components/ui/Pagination";
 import { SearchField } from "../components/ui/SearchField";
+import { TableSkeleton } from "../components/ui/Skeleton";
 
 const PAGE_SIZE = 10;
 
@@ -25,8 +26,8 @@ const emptyCustomerForm = {
 
 export default function CustomersPage() {
   const { notify } = useNotifications();
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
-  const [filters, setFilters] = useState({ limit: PAGE_SIZE, offset: 0, q: "" });
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [filters, setFilters] = useState({ limit: PAGE_SIZE, offset: 0, q: "", sort_dir: "desc" });
   const [isFormOpen, setIsFormOpen] = useState(false);
   const customersQuery = useCustomers(filters);
   const createCustomer = useCreateCustomer();
@@ -38,6 +39,7 @@ export default function CustomersPage() {
     {
       header: "Customer",
       key: "full_name",
+      sortable: true,
       render: (customer) => <PersonCell name={customer.full_name} sub={customer.email} />,
     },
     {
@@ -54,43 +56,22 @@ export default function CustomersPage() {
       header: "",
       key: "actions",
       align: "right",
-      render: (customer) => {
-        const isConfirmingDelete = confirmingDeleteId === customer.id;
-        if (isConfirmingDelete) {
-          return (
-            <div className="row-actions">
-              <Button
-                size="sm"
-                variant="danger"
-                isLoading={deleteCustomer.isPending && deleteCustomer.variables === customer.id}
-                onClick={() => handleDelete(customer)}
-              >
-                Confirm
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => setConfirmingDeleteId(null)}>
-                Cancel
-              </Button>
-            </div>
-          );
-        }
-        return (
-          <div className="row-actions">
-            <IconButton
-              icon="trash"
-              label={`Delete ${customer.full_name}`}
-              variant="secondary"
-              size="sm"
-              onClick={() => setConfirmingDeleteId(customer.id)}
-            />
-          </div>
-        );
-      },
+      render: (customer) => (
+        <div className="row-actions">
+          <IconButton
+            icon="trash"
+            label={`Delete ${customer.full_name}`}
+            variant="secondary"
+            size="sm"
+            onClick={() => setDeleteTarget(customer)}
+          />
+        </div>
+      ),
     },
   ];
 
   function openForm() {
     createCustomer.reset();
-    setConfirmingDeleteId(null);
     setIsFormOpen(true);
   }
 
@@ -100,6 +81,15 @@ export default function CustomersPage() {
 
   function changePage(offset) {
     setFilters((current) => ({ ...current, offset }));
+  }
+
+  function handleSort(key) {
+    setFilters((current) => ({
+      ...current,
+      offset: 0,
+      sort_by: key,
+      sort_dir: current.sort_by === key && current.sort_dir === "asc" ? "desc" : "asc",
+    }));
   }
 
   async function handleSubmit(payload) {
@@ -112,11 +102,12 @@ export default function CustomersPage() {
     setIsFormOpen(false);
   }
 
-  async function handleDelete(customer) {
+  async function handleDelete() {
+    if (!deleteTarget) return;
     try {
-      await deleteCustomer.mutateAsync(customer.id);
-      setConfirmingDeleteId(null);
-      notify({ message: `${customer.full_name} was deleted.`, tone: "success" });
+      await deleteCustomer.mutateAsync(deleteTarget.id);
+      notify({ message: `${deleteTarget.full_name} was deleted.`, tone: "success" });
+      setDeleteTarget(null);
     } catch (error) {
       notify({
         message: error.message || "Unable to delete customer.",
@@ -178,7 +169,7 @@ export default function CustomersPage() {
         }
       >
         {customersQuery.isPending ? (
-          <LoadingState label="Loading customers..." />
+          <TableSkeleton columns={columns} />
         ) : customersQuery.isError ? (
           <div className="card-pad">
             <Alert tone="danger" title="Customers unavailable">
@@ -189,6 +180,8 @@ export default function CustomersPage() {
           <DataTable
             columns={columns}
             rows={rows}
+            sort={{ by: filters.sort_by, dir: filters.sort_dir }}
+            onSort={handleSort}
             empty={
               <div className="empty-state">
                 <EmptyCustomers />
@@ -202,6 +195,17 @@ export default function CustomersPage() {
           />
         )}
       </Card>
+
+      {deleteTarget ? (
+        <ConfirmModal
+          title="Delete this customer?"
+          message={`“${deleteTarget.full_name}” will be deleted. Past orders keep their captured details.`}
+          confirmLabel="Delete customer"
+          isLoading={deleteCustomer.isPending}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }

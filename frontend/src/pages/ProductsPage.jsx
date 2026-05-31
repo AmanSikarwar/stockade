@@ -16,16 +16,22 @@ import { EmptyProducts } from "../components/illustrations/Illustrations";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { Checkbox, Radio } from "../components/ui/Checkbox";
 import { DataTable } from "../components/ui/DataTable";
+import { Drawer } from "../components/ui/Drawer";
 import { ProductCell } from "../components/ui/EntityCell";
 import { FormField } from "../components/ui/FormField";
 import { IconButton } from "../components/ui/IconButton";
-import { LoadingState } from "../components/ui/LoadingState";
+import { ConfirmModal } from "../components/ui/Modal";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Pill, StockPill } from "../components/ui/Pill";
 import { Pagination } from "../components/ui/Pagination";
 import { SearchField } from "../components/ui/SearchField";
 import { Select } from "../components/ui/Select";
+import { Skeleton, TableSkeleton } from "../components/ui/Skeleton";
+import { Switch } from "../components/ui/Switch";
+import { Tag } from "../components/ui/Tag";
+import { TextArea } from "../components/ui/TextArea";
 import { formatCurrency, formatDateTime } from "../lib/format";
 
 const PAGE_SIZE = 10;
@@ -41,12 +47,13 @@ export default function ProductsPage() {
   const { notify } = useNotifications();
   const [searchParams] = useSearchParams();
   const queryParam = searchParams.get("q") ?? "";
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [filters, setFilters] = useState({
     include_inactive: false,
     limit: PAGE_SIZE,
     offset: 0,
     q: queryParam,
+    sort_dir: "desc",
   });
   const [formProduct, setFormProduct] = useState(null);
   const [stockProduct, setStockProduct] = useState(null);
@@ -73,16 +80,19 @@ export default function ProductsPage() {
 
   const rows = productsQuery.data?.items ?? [];
   const total = productsQuery.data?.total ?? 0;
+  const activeCategory = filters.category_id ? categoryMap.get(filters.category_id) : null;
 
   const columns = [
     {
       header: "Product",
       key: "name",
+      sortable: true,
       render: (product) => <ProductCell name={product.name} sku={product.sku} />,
     },
     {
       header: "On hand",
       key: "quantity_in_stock",
+      sortable: true,
       align: "right",
       cellClassName: "num cell-strong",
       render: (product) => product.quantity_in_stock.toLocaleString("en-IN"),
@@ -90,6 +100,7 @@ export default function ProductsPage() {
     {
       header: "Unit price",
       key: "price",
+      sortable: true,
       align: "right",
       cellClassName: "num",
       render: (product) => formatCurrency(product.price),
@@ -99,9 +110,7 @@ export default function ProductsPage() {
       key: "category_id",
       render: (product) =>
         product.category_id && categoryMap.has(product.category_id) ? (
-          <Pill tone="neutral" dot={false}>
-            {categoryMap.get(product.category_id).name}
-          </Pill>
+          <Tag icon="tag">{categoryMap.get(product.category_id).name}</Tag>
         ) : (
           <span className="muted">—</span>
         ),
@@ -124,64 +133,42 @@ export default function ProductsPage() {
       header: "",
       key: "actions",
       align: "right",
-      render: (product) => {
-        const isConfirmingDelete = confirmingDeleteId === product.id;
-        if (isConfirmingDelete) {
-          return (
-            <div className="row-actions">
-              <Button
-                size="sm"
-                variant="danger"
-                isLoading={deleteProduct.isPending && deleteProduct.variables === product.id}
-                onClick={() => handleDelete(product)}
-              >
-                Confirm
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => setConfirmingDeleteId(null)}>
-                Cancel
-              </Button>
-            </div>
-          );
-        }
-        return (
-          <div className="row-actions">
-            <IconButton
-              icon="layers"
-              label={`Adjust stock for ${product.name}`}
-              variant="secondary"
-              size="sm"
-              onClick={() => openStock(product)}
-            />
-            <IconButton
-              icon="edit"
-              label={`Edit ${product.name}`}
-              variant="secondary"
-              size="sm"
-              onClick={() => openForm(product)}
-            />
-            <IconButton
-              icon="trash"
-              label={`Delete ${product.name}`}
-              variant="secondary"
-              size="sm"
-              onClick={() => setConfirmingDeleteId(product.id)}
-            />
-          </div>
-        );
-      },
+      render: (product) => (
+        <div className="row-actions">
+          <IconButton
+            icon="layers"
+            label={`Adjust stock for ${product.name}`}
+            variant="secondary"
+            size="sm"
+            onClick={() => openStock(product)}
+          />
+          <IconButton
+            icon="edit"
+            label={`Edit ${product.name}`}
+            variant="secondary"
+            size="sm"
+            onClick={() => openForm(product)}
+          />
+          <IconButton
+            icon="trash"
+            label={`Delete ${product.name}`}
+            variant="secondary"
+            size="sm"
+            onClick={() => setDeleteTarget(product)}
+          />
+        </div>
+      ),
     },
   ];
 
   function openForm(product) {
     createProduct.reset();
     updateProduct.reset();
-    setConfirmingDeleteId(null);
     setStockProduct(null);
     setFormProduct(product);
   }
 
   function openStock(product) {
-    setConfirmingDeleteId(null);
     setFormProduct(null);
     setStockProduct(product);
   }
@@ -203,6 +190,15 @@ export default function ProductsPage() {
     setFilters((current) => ({ ...current, category_id: value || undefined, offset: 0 }));
   }
 
+  function handleSort(key) {
+    setFilters((current) => ({
+      ...current,
+      offset: 0,
+      sort_by: key,
+      sort_dir: current.sort_by === key && current.sort_dir === "asc" ? "desc" : "asc",
+    }));
+  }
+
   async function handleSubmit(payload) {
     if (formProduct?.id) {
       const product = await updateProduct.mutateAsync({ payload, productId: formProduct.id });
@@ -216,11 +212,15 @@ export default function ProductsPage() {
     setFormProduct(null);
   }
 
-  async function handleDelete(product) {
+  async function handleDelete() {
+    if (!deleteTarget) return;
     try {
-      await deleteProduct.mutateAsync(product.id);
-      setConfirmingDeleteId(null);
-      notify({ message: `${product.name} was removed from active inventory.`, tone: "success" });
+      await deleteProduct.mutateAsync(deleteTarget.id);
+      notify({
+        message: `${deleteTarget.name} was removed from active inventory.`,
+        tone: "success",
+      });
+      setDeleteTarget(null);
     } catch (error) {
       notify({
         message: error.message || "Unable to delete product.",
@@ -232,6 +232,7 @@ export default function ProductsPage() {
 
   const mutationError = createProduct.error || updateProduct.error;
   const isSaving = createProduct.isPending || updateProduct.isPending;
+  const hasActiveFilters = Boolean(filters.q || filters.category_id);
 
   return (
     <div className="page">
@@ -256,12 +257,26 @@ export default function ProductsPage() {
         />
       ) : null}
 
-      {stockProduct ? (
-        <StockPanel
-          key={stockProduct.id}
-          product={stockProduct}
-          onClose={() => setStockProduct(null)}
-        />
+      {hasActiveFilters ? (
+        <div className="toolbar">
+          <span className="t-caption muted">Filters</span>
+          {filters.q ? (
+            <Tag icon="search" onClose={() => updateSearch("")} closeLabel="Clear search">
+              “{filters.q}”
+            </Tag>
+          ) : null}
+          {activeCategory ? (
+            <Tag
+              icon="tag"
+              onClose={() =>
+                setFilters((current) => ({ ...current, category_id: undefined, offset: 0 }))
+              }
+              closeLabel="Clear category filter"
+            >
+              {activeCategory.name}
+            </Tag>
+          ) : null}
+        </div>
       ) : null}
 
       <Card
@@ -289,23 +304,11 @@ export default function ProductsPage() {
                 ))}
               </Select>
             </div>
-            <label className="ctl">
-              <input checked={filters.include_inactive} onChange={toggleInactive} type="checkbox" />
-              <span className="ctl-box">
-                {filters.include_inactive ? (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                    <path
-                      d="M5 12.5 9.7 17 19 7"
-                      stroke="currentColor"
-                      strokeWidth="2.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : null}
-              </span>
-              <span className="t-caption">Include inactive</span>
-            </label>
+            <Switch
+              checked={filters.include_inactive}
+              onChange={toggleInactive}
+              label="Include inactive"
+            />
             <IconButton
               icon="refresh"
               label="Refresh products"
@@ -326,7 +329,7 @@ export default function ProductsPage() {
         }
       >
         {productsQuery.isPending ? (
-          <LoadingState label="Loading products..." />
+          <TableSkeleton columns={columns} />
         ) : productsQuery.isError ? (
           <div className="card-pad">
             <Alert tone="danger" title="Products unavailable">
@@ -337,6 +340,8 @@ export default function ProductsPage() {
           <DataTable
             columns={columns}
             rows={rows}
+            sort={{ by: filters.sort_by, dir: filters.sort_dir }}
+            onSort={handleSort}
             empty={
               <div className="empty-state">
                 <EmptyProducts />
@@ -350,6 +355,25 @@ export default function ProductsPage() {
           />
         )}
       </Card>
+
+      {stockProduct ? (
+        <StockDrawer
+          key={stockProduct.id}
+          product={stockProduct}
+          onClose={() => setStockProduct(null)}
+        />
+      ) : null}
+
+      {deleteTarget ? (
+        <ConfirmModal
+          title="Delete this product?"
+          message={`“${deleteTarget.name}” will be removed from your catalog. Past orders keep their captured details.`}
+          confirmLabel="Delete product"
+          isLoading={deleteProduct.isPending}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }
@@ -500,7 +524,7 @@ const ADJUST_REASONS = [
   { value: "manual", label: "Manual" },
 ];
 
-function StockPanel({ product, onClose }) {
+function StockDrawer({ product, onClose }) {
   const { notify } = useNotifications();
   const adjustStock = useAdjustStock();
   const movementsQuery = useStockMovements(product.id, { limit: 20, offset: 0 });
@@ -509,6 +533,7 @@ function StockPanel({ product, onClose }) {
   const [direction, setDirection] = useState("add");
   const [reason, setReason] = useState("restock");
   const [note, setNote] = useState("");
+  const [closeAfter, setCloseAfter] = useState(false);
   const [validationError, setValidationError] = useState("");
 
   const movements = movementsQuery.data?.items ?? [];
@@ -542,6 +567,7 @@ function StockPanel({ product, onClose }) {
         tone: "success",
         title: "Stock adjusted",
       });
+      if (closeAfter) onClose();
     } catch {
       // adjustStock.error renders through the alert below.
     }
@@ -607,33 +633,59 @@ function StockPanel({ product, onClose }) {
   ];
 
   return (
-    <Card title={`Adjust stock · ${product.name}`} pad>
+    <Drawer
+      title="Adjust stock"
+      subtitle={`${product.name} · ${product.sku}`}
+      width={560}
+      onClose={onClose}
+      footer={
+        <>
+          <Checkbox
+            label="Close after applying"
+            checked={closeAfter}
+            onChange={(event) => setCloseAfter(event.target.checked)}
+          />
+          <span style={{ flex: 1 }} />
+          <Button variant="secondary" type="button" onClick={onClose}>
+            Close
+          </Button>
+          <Button icon="check" form="adjust-form" type="submit" isLoading={adjustStock.isPending}>
+            Apply adjustment
+          </Button>
+        </>
+      }
+    >
       <div className="stack">
         <div className="stat-inline">
-          <div className="stat">
-            <span className="k">SKU</span>
-            <strong className="v t-num" style={{ fontSize: 18 }}>
-              {product.sku}
-            </strong>
-          </div>
           <div className="stat">
             <span className="k">On hand</span>
             <strong className="v t-num">{current}</strong>
           </div>
+          <div className="stat">
+            <span className="k">Reorder at</span>
+            <strong className="v t-num">{product.reorder_point ?? "Default"}</strong>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="stack">
+        <form id="adjust-form" onSubmit={handleSubmit} className="stack">
+          <FormField id="adjust-direction" label="Direction">
+            <div className="toolbar" role="radiogroup" aria-label="Direction">
+              <Radio
+                name="adjust-direction"
+                label="Add stock (+)"
+                checked={direction === "add"}
+                onChange={() => setDirection("add")}
+              />
+              <Radio
+                name="adjust-direction"
+                label="Remove stock (−)"
+                checked={direction === "remove"}
+                onChange={() => setDirection("remove")}
+              />
+            </div>
+          </FormField>
+
           <div className="form-grid">
-            <FormField id="adjust-direction" label="Direction">
-              <Select
-                id="adjust-direction"
-                value={direction}
-                onChange={(event) => setDirection(event.target.value)}
-              >
-                <option value="add">Add stock (+)</option>
-                <option value="remove">Remove stock (−)</option>
-              </Select>
-            </FormField>
             <FormField
               id="adjust-quantity"
               inputMode="numeric"
@@ -658,28 +710,20 @@ function StockPanel({ product, onClose }) {
                 ))}
               </Select>
             </FormField>
-            <FormField
+          </div>
+
+          <FormField id="adjust-note" label="Note" hint="Optional — shown in the movement history.">
+            <TextArea
               id="adjust-note"
-              label="Note"
-              hint="Optional"
               maxLength="255"
               onChange={(event) => setNote(event.target.value)}
               placeholder="e.g. Received PO #1234"
               value={note}
             />
-          </div>
+          </FormField>
 
           {validationError ? <Alert tone="warning">{validationError}</Alert> : null}
           {adjustStock.error ? <Alert tone="danger">{adjustStock.error.message}</Alert> : null}
-
-          <div className="form-actions">
-            <Button icon="check" isLoading={adjustStock.isPending} type="submit">
-              Apply adjustment
-            </Button>
-            <Button onClick={onClose} type="button" variant="secondary">
-              Close
-            </Button>
-          </div>
         </form>
 
         <div>
@@ -687,7 +731,11 @@ function StockPanel({ product, onClose }) {
             Movement history{total ? ` · ${total}` : ""}
           </div>
           {movementsQuery.isPending ? (
-            <LoadingState label="Loading movements..." />
+            <div className="stack" style={{ gap: 10 }}>
+              <Skeleton width="100%" height={38} />
+              <Skeleton width="100%" height={38} />
+              <Skeleton width="70%" height={38} />
+            </div>
           ) : (
             <DataTable
               columns={columns}
@@ -697,7 +745,7 @@ function StockPanel({ product, onClose }) {
           )}
         </div>
       </div>
-    </Card>
+    </Drawer>
   );
 }
 

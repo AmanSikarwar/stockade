@@ -1,6 +1,35 @@
 import { EmptySearch } from "../illustrations/Illustrations";
+import { Icon } from "../icons/Icon";
 
-export function DataTable({ columns, rows, emptyMessage = "No records found.", empty }) {
+function SortableHeader({ column, sort, onSort }) {
+  const sortKey = column.sortKey ?? column.key;
+  const active = sort?.by === sortKey;
+  const dir = active ? sort.dir : null;
+  return (
+    <th scope="col" className={`sortable ${column.align === "right" ? "t-right" : ""}`.trim()}>
+      <button type="button" className="th-in" onClick={() => onSort(sortKey)}>
+        {column.header}
+        <span className={`sort-ico ${active ? "active" : ""}`.trim()}>
+          <Icon
+            name="chevron"
+            size={13}
+            stroke={2.2}
+            className={dir === "asc" ? "rot-up" : "rot-down"}
+          />
+        </span>
+      </button>
+    </th>
+  );
+}
+
+export function DataTable({
+  columns,
+  rows,
+  emptyMessage = "No records found.",
+  empty,
+  sort,
+  onSort,
+}) {
   if (!rows?.length) {
     return (
       empty ?? (
@@ -17,15 +46,19 @@ export function DataTable({ columns, rows, emptyMessage = "No records found.", e
       <table className="tbl">
         <thead>
           <tr>
-            {columns.map((column) => (
-              <th
-                key={column.key}
-                scope="col"
-                className={column.align === "right" ? "t-right" : undefined}
-              >
-                {column.header}
-              </th>
-            ))}
+            {columns.map((column) =>
+              column.sortable && onSort ? (
+                <SortableHeader key={column.key} column={column} sort={sort} onSort={onSort} />
+              ) : (
+                <th
+                  key={column.key}
+                  scope="col"
+                  className={column.align === "right" ? "t-right" : undefined}
+                >
+                  {column.header}
+                </th>
+              ),
+            )}
           </tr>
         </thead>
         <tbody>

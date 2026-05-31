@@ -14,17 +14,18 @@ import { Card } from "../components/ui/Card";
 import { DataTable } from "../components/ui/DataTable";
 import { FormField } from "../components/ui/FormField";
 import { IconButton } from "../components/ui/IconButton";
-import { LoadingState } from "../components/ui/LoadingState";
+import { ConfirmModal } from "../components/ui/Modal";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Pill } from "../components/ui/Pill";
 import { SearchField } from "../components/ui/SearchField";
+import { TableSkeleton } from "../components/ui/Skeleton";
 
 const PAGE_SIZE = 50;
 
 export default function CategoriesPage() {
   const { notify } = useNotifications();
   const [search, setSearch] = useState("");
-  const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [formCategory, setFormCategory] = useState(null);
 
   const categoriesQuery = useCategories({ limit: PAGE_SIZE, offset: 0, q: search || undefined });
@@ -65,50 +66,30 @@ export default function CategoriesPage() {
       header: "",
       key: "actions",
       align: "right",
-      render: (category) => {
-        if (confirmingDeleteId === category.id) {
-          return (
-            <div className="row-actions">
-              <Button
-                size="sm"
-                variant="danger"
-                isLoading={deleteCategory.isPending && deleteCategory.variables === category.id}
-                onClick={() => handleDelete(category)}
-              >
-                Confirm
-              </Button>
-              <Button size="sm" variant="secondary" onClick={() => setConfirmingDeleteId(null)}>
-                Cancel
-              </Button>
-            </div>
-          );
-        }
-        return (
-          <div className="row-actions">
-            <IconButton
-              icon="edit"
-              label={`Edit ${category.name}`}
-              variant="secondary"
-              size="sm"
-              onClick={() => openForm(category)}
-            />
-            <IconButton
-              icon="trash"
-              label={`Delete ${category.name}`}
-              variant="secondary"
-              size="sm"
-              onClick={() => setConfirmingDeleteId(category.id)}
-            />
-          </div>
-        );
-      },
+      render: (category) => (
+        <div className="row-actions">
+          <IconButton
+            icon="edit"
+            label={`Edit ${category.name}`}
+            variant="secondary"
+            size="sm"
+            onClick={() => openForm(category)}
+          />
+          <IconButton
+            icon="trash"
+            label={`Delete ${category.name}`}
+            variant="secondary"
+            size="sm"
+            onClick={() => setDeleteTarget(category)}
+          />
+        </div>
+      ),
     },
   ];
 
   function openForm(category) {
     createCategory.reset();
     updateCategory.reset();
-    setConfirmingDeleteId(null);
     setFormCategory(category);
   }
 
@@ -134,11 +115,12 @@ export default function CategoriesPage() {
     setFormCategory(null);
   }
 
-  async function handleDelete(category) {
+  async function handleDelete() {
+    if (!deleteTarget) return;
     try {
-      await deleteCategory.mutateAsync(category.id);
-      setConfirmingDeleteId(null);
-      notify({ message: `${category.name} was deleted.`, tone: "success" });
+      await deleteCategory.mutateAsync(deleteTarget.id);
+      notify({ message: `${deleteTarget.name} was deleted.`, tone: "success" });
+      setDeleteTarget(null);
     } catch (error) {
       notify({
         message: error.message || "Unable to delete category.",
@@ -186,7 +168,7 @@ export default function CategoriesPage() {
         }
       >
         {categoriesQuery.isPending ? (
-          <LoadingState label="Loading categories..." />
+          <TableSkeleton columns={columns} />
         ) : categoriesQuery.isError ? (
           <div className="card-pad">
             <Alert tone="danger" title="Categories unavailable">
@@ -210,6 +192,23 @@ export default function CategoriesPage() {
           />
         )}
       </Card>
+
+      {deleteTarget ? (
+        <ConfirmModal
+          title="Delete this category?"
+          message={
+            deleteTarget.product_count > 0
+              ? `“${deleteTarget.name}” is used by ${deleteTarget.product_count} ${
+                  deleteTarget.product_count === 1 ? "product" : "products"
+                }. They will keep their data but lose this category.`
+              : `“${deleteTarget.name}” will be removed.`
+          }
+          confirmLabel="Delete category"
+          isLoading={deleteCategory.isPending}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      ) : null}
     </div>
   );
 }
