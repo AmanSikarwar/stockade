@@ -1,80 +1,115 @@
 # Stockade
 
-Stockade is a self-hostable inventory and order management system. It provides
-product, customer, order, inventory, and dashboard workflows behind an
-authenticated FastAPI API and a React frontend.
+Stockade is a self-hostable inventory and order management application for
+small operations teams. It combines a FastAPI backend, PostgreSQL data model,
+Alembic migrations, and a React/Vite frontend for managing products,
+categories, customers, orders, inventory adjustments, dashboard metrics, and
+sales reports.
 
-The local stack runs with one Docker Compose command and includes PostgreSQL,
-the backend API, and the production-built frontend.
+## Live Project
 
-## Current Status
+| Artifact                 | URL                                                                                                        |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| GitHub repository        | [github.com/AmanSikarwar/stockade](https://github.com/AmanSikarwar/stockade)                               |
+| Live app                 | [stockade-delta.vercel.app/app](https://stockade-delta.vercel.app/app)                                     |
+| Deployed backend         | [stockade-backend-production.up.railway.app](https://stockade-backend-production.up.railway.app/)          |
+| Backend OpenAPI docs     | [stockade-backend-production.up.railway.app/docs](https://stockade-backend-production.up.railway.app/docs) |
+| Docker Hub backend image | [amansikarwar/stockade-backend](https://hub.docker.com/r/amansikarwar/stockade-backend)                    |
 
-- Local full-stack orchestration is complete and verified.
-- Backend image publishing automation is configured in
-  `.github/workflows/publish-backend-image.yml`; it still requires Docker Hub
-  repository variables and a token.
-- Hosted backend deployment is configured in `render.yaml`; it still requires a
-  Render account and production secret values.
-- Hosted frontend routing is configured in `frontend/vercel.json`; deployment
-  still requires a Vercel project and the deployed backend public URL.
-- CI is configured in `.github/workflows/ci.yml` for backend tests and frontend
-  lint/format/build checks.
+Demo login:
 
-Do not use the local example passwords or JWT secret outside local development.
+```text
+Email: admin@stockade.app
+Password: StockadePass
+```
+
+Use the demo credentials only for the hosted demo. Private deployments should
+set their own `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `JWT_SECRET_KEY` before the
+first backend boot.
+
+## What Stockade Does
+
+- Tracks products with SKU, price, on-hand quantity, optional category, optional
+  reorder point, and active/inactive state.
+- Groups products into categories and exposes product counts per category.
+- Manages customers with validated email addresses and optional phone numbers.
+- Creates multi-line orders against customers and products.
+- Computes order totals server-side using exact decimal money values.
+- Snapshots product price into each order line so historical orders are stable.
+- Rejects orders that would oversell inventory.
+- Decrements stock in the same transaction as order creation.
+- Cancels orders and restores stock in the same transaction.
+- Records every inventory change in an append-only stock movement audit log.
+- Supports manual stock adjustments for restocks, corrections, damage, and
+  general manual changes.
+- Shows dashboard totals, order status counts, and low-stock products.
+- Reports revenue over time, top products, and sales by customer.
+- Protects business endpoints with signed JWT bearer authentication.
+
+## Repository Layout
+
+```text
+.
+|-- backend/                  # FastAPI API, SQLAlchemy models, Alembic, tests
+|   |-- app/
+|   |   |-- api/              # Route handlers and API dependencies
+|   |   |-- core/             # Settings, logging, JWT/password security
+|   |   |-- db/               # SQLAlchemy base/session wiring
+|   |   |-- models/           # SQLAlchemy ORM entities
+|   |   |-- repositories/     # Organization-scoped persistence queries
+|   |   |-- schemas/          # Pydantic request/response models
+|   |   `-- services/         # Business rules and transactions
+|   |-- migrations/           # Alembic migration environment and versions
+|   |-- tests/                # Backend pytest suite
+|   |-- Dockerfile
+|   `-- railway.json
+|-- frontend/                 # React/Vite app and production Nginx image
+|   |-- src/
+|   |   |-- api/              # Fetch client and TanStack Query hooks
+|   |   |-- auth/             # Session persistence and auth context
+|   |   |-- components/       # Reusable shell, UI, feedback, and brand pieces
+|   |   |-- pages/            # Dashboard, products, categories, orders, reports
+|   |   |-- styles/
+|   |   `-- theme/
+|   |-- Dockerfile
+|   `-- vercel.json
+|-- docs/                     # Docker Hub overview copy and project notes
+|-- scripts/                  # Local and live deployment verification scripts
+|-- compose.yaml              # Local full-stack Docker Compose stack
+|-- render.yaml               # Alternative Render blueprint for backend hosting
+`-- .github/workflows/        # CI and Docker Hub publishing workflows
+```
 
 ## Architecture
 
-The repository is a monorepo:
+Stockade is organized as a small monorepo with separate backend and frontend
+applications.
+
+The backend keeps route handlers thin. Routes validate HTTP inputs and map
+domain exceptions to structured API errors. Business behavior lives in service
+classes, and persistence details live in repositories. Models are
+organization-scoped from the start, so the current single-organization bootstrap
+can evolve toward broader multi-tenancy without changing every table.
+
+The frontend uses React Router for page routing, TanStack Query for server
+state, and a shared API client that attaches bearer tokens from the auth
+context. The app shell protects `/app/*` routes, while `/login` remains public.
+The production frontend build is static and is served by Nginx in Docker or by
+Vercel in the hosted deployment.
+
+Request flow:
 
 ```text
-backend/    FastAPI API, SQLAlchemy models, Alembic migrations, tests
-frontend/   Vite React app, API client, server-state hooks, production Nginx image
-infra/      Reserved for infrastructure notes and future platform config
-compose.yaml
+Browser
+  -> React page / TanStack Query hook
+  -> frontend/src/api/client.js
+  -> FastAPI route
+  -> service transaction
+  -> repository query
+  -> PostgreSQL
 ```
 
-The backend keeps route handlers thin. Business rules live in services, and
-persistence access is funneled through repositories. Every business entity is
-organization-scoped from day one, so the current single-tenant deployment can
-evolve toward multi-tenancy without rewriting the domain model.
-
-The frontend uses a Stockade-specific design language derived from the
-`Stockade-design/` reference folder: pine and sage colors, compact operational
-layouts, accessible forms, status badges, and reusable table/panel primitives.
-
-## Stack And Pinned Versions
-
-Backend:
-
-- Python `3.14.5`
-- FastAPI `0.136.3`
-- Pydantic `2.13.4`
-- Pydantic Settings `2.14.1`
-- SQLAlchemy `2.0.50`
-- Alembic `1.18.4`
-- psycopg `3.3.4`
-- Uvicorn `0.48.0`
-- PyJWT `2.13.0`
-- argon2-cffi `25.1.0`
-- Backend image base: `python:3.14.5-slim`
-
-Frontend:
-
-- Node image base: `node:24.16.0-alpine3.23`
-- React `19.2.6`
-- React DOM `19.2.6`
-- React Router `7.16.0`
-- TanStack Query `5.100.14`
-- Vite `8.0.14`
-- Nginx runtime image: `nginx:1.31.1-alpine3.23-slim`
-
-Database and orchestration:
-
-- PostgreSQL image: `postgres:18.4-alpine3.23`
-- Docker Compose with healthcheck-based service ordering
-- Named volume: `stockade_postgres_data`
-
-## Local Setup
+## Quick Start With Docker Compose
 
 Prerequisites:
 
@@ -91,13 +126,16 @@ docker compose --env-file .env up --build
 Open:
 
 - Frontend: `http://localhost:5173`
-- API readiness: `http://localhost:8000/ready`
+- Backend readiness: `http://localhost:8000/ready`
+- Backend liveness: `http://localhost:8000/health`
 - API docs: `http://localhost:8000/docs`
 
 Local seeded admin:
 
-- Email: `admin@example.com`
-- Password: `local-dev-admin-password`
+```text
+Email: admin@example.com
+Password: local-dev-admin-password
+```
 
 Stop the stack:
 
@@ -105,119 +143,187 @@ Stop the stack:
 docker compose --env-file .env down
 ```
 
-Stop and remove local database data:
+Stop the stack and remove the local database volume:
 
 ```bash
 docker compose --env-file .env down -v
 ```
 
+## Local Development Without Compose
+
+Compose is the shortest path because it wires PostgreSQL, the backend, and the
+frontend together. For split-process development, run PostgreSQL separately and
+start each app from its own directory.
+
+Start PostgreSQL:
+
+```bash
+docker run --rm -d --name stockade-postgres \
+  -e POSTGRES_DB=stockade \
+  -e POSTGRES_USER=stockade \
+  -e POSTGRES_PASSWORD=local-dev-postgres-password \
+  -p 5432:5432 \
+  postgres:18.4-alpine3.23
+```
+
+Start the backend:
+
+```bash
+cd backend
+cp .env.example .env
+python3.14 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+alembic upgrade head
+python -m app.bootstrap
+uvicorn --factory app.main:create_app --host 127.0.0.1 --port 8000 --reload
+```
+
+Start the frontend in another shell:
+
+```bash
+cd frontend
+cp .env.example .env.local
+npm ci
+npm run dev
+```
+
+The Vite dev server runs at `http://127.0.0.1:5173` and reads
+`VITE_API_BASE_URL` from `frontend/.env.local`.
+
 ## Environment Variables
 
-Root `.env.example` is used by Docker Compose for local development.
+Root `.env.example` is used by Docker Compose. `backend/.env.example` is useful
+when running the backend from the `backend/` directory. `frontend/.env.example`
+contains the Vite public API URL.
 
-| Variable                      | Required | Used by          | Description                                              |
-| ----------------------------- | -------- | ---------------- | -------------------------------------------------------- |
-| `APP_NAME`                    | No       | Backend          | Display name for logs/docs.                              |
-| `ENVIRONMENT`                 | No       | Backend          | `local`, `test`, `staging`, or `production`.             |
-| `LOG_LEVEL`                   | No       | Backend          | Structured logging level.                                |
-| `POSTGRES_DB`                 | Yes      | Compose DB       | Local PostgreSQL database name.                          |
-| `POSTGRES_USER`               | Yes      | Compose DB       | Local PostgreSQL username.                               |
-| `POSTGRES_PASSWORD`           | Yes      | Compose DB       | Local PostgreSQL password.                               |
-| `POSTGRES_PORT`               | No       | Local docs/tests | Local host port convention.                              |
-| `BACKEND_HOST`                | No       | Backend          | Bind host, usually `0.0.0.0` in containers.              |
-| `BACKEND_PORT`                | No       | Backend/Compose  | Backend bind and published port.                         |
-| `PORT`                        | No       | Hosted backend   | Platform-provided port; used if `BACKEND_PORT` is unset. |
-| `DATABASE_URL`                | Yes      | Backend          | SQLAlchemy PostgreSQL URL.                               |
-| `JWT_SECRET_KEY`              | Yes      | Backend          | Signing key; minimum 32 characters.                      |
-| `JWT_ALGORITHM`               | No       | Backend          | JWT signing algorithm, default `HS256`.                  |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | No       | Backend          | Token lifetime in minutes.                               |
-| `DEFAULT_ORGANIZATION_NAME`   | Yes      | Bootstrap        | Seeded organization display name.                        |
-| `ADMIN_EMAIL`                 | Yes      | Bootstrap/Auth   | Seeded admin email.                                      |
-| `ADMIN_PASSWORD`              | Yes      | Bootstrap/Auth   | Seeded admin password.                                   |
-| `CORS_ORIGINS`                | Yes      | Backend          | Comma-separated allowed frontend origins.                |
-| `LOW_STOCK_THRESHOLD`         | No       | Dashboard        | Quantity threshold for low-stock metrics.                |
-| `FRONTEND_PORT`               | No       | Compose frontend | Local frontend published port.                           |
-| `VITE_API_BASE_URL`           | Yes      | Frontend build   | Public browser URL for the backend API.                  |
+| Variable                      | Required                | Used by          | Description                                                                                             |
+| ----------------------------- | ----------------------- | ---------------- | ------------------------------------------------------------------------------------------------------- |
+| `APP_NAME`                    | No                      | Backend          | Display name for generated docs and logs.                                                               |
+| `ENVIRONMENT`                 | No                      | Backend          | One of `local`, `test`, `staging`, `production`.                                                        |
+| `LOG_LEVEL`                   | No                      | Backend          | Logging level: `DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL`.                                         |
+| `POSTGRES_DB`                 | Yes for Compose         | Compose DB       | Local PostgreSQL database name.                                                                         |
+| `POSTGRES_USER`               | Yes for Compose         | Compose DB       | Local PostgreSQL username.                                                                              |
+| `POSTGRES_PASSWORD`           | Yes for Compose         | Compose DB       | Local PostgreSQL password.                                                                              |
+| `POSTGRES_PORT`               | No                      | Local convention | Host port used for local PostgreSQL references.                                                         |
+| `BACKEND_HOST`                | No                      | Backend          | Bind host, usually `0.0.0.0` in containers.                                                             |
+| `BACKEND_PORT`                | No                      | Backend/Compose  | Backend bind and published port.                                                                        |
+| `PORT`                        | Platform-provided       | Hosted backend   | Used by `backend/scripts/start.sh` if `BACKEND_PORT` is unset.                                          |
+| `DATABASE_URL`                | Yes                     | Backend          | SQLAlchemy PostgreSQL URL. `postgres://` and `postgresql://` are normalized to `postgresql+psycopg://`. |
+| `JWT_SECRET_KEY`              | Yes                     | Backend          | JWT signing secret; must be at least 32 characters.                                                     |
+| `JWT_ALGORITHM`               | No                      | Backend          | JWT algorithm, default `HS256`.                                                                         |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | No                      | Backend          | Access token lifetime in minutes.                                                                       |
+| `DEFAULT_ORGANIZATION_NAME`   | Yes                     | Bootstrap        | Name for the seeded organization.                                                                       |
+| `ADMIN_EMAIL`                 | Yes                     | Bootstrap/Auth   | Initial admin email.                                                                                    |
+| `ADMIN_PASSWORD`              | Yes                     | Bootstrap/Auth   | Initial admin password; minimum 12 characters.                                                          |
+| `CORS_ORIGINS`                | Yes for browser clients | Backend          | Comma-separated frontend origins allowed by CORS.                                                       |
+| `LOW_STOCK_THRESHOLD`         | No                      | Dashboard        | Fallback threshold when a product has no `reorder_point`.                                               |
+| `FRONTEND_PORT`               | No                      | Compose frontend | Local host port for the containerized frontend.                                                         |
+| `VITE_API_BASE_URL`           | Yes                     | Frontend build   | Public backend API base URL included in the browser bundle.                                             |
 
-Production deployments must provide their own secret values and should not use
-the local defaults.
+Never reuse local example secrets in production.
+
+## Backend Startup Behavior
+
+The backend container default command is `backend/scripts/start.sh`. On every
+startup it runs:
+
+1. `alembic upgrade head`
+2. `python -m app.bootstrap`
+3. `uvicorn --factory app.main:create_app`
+
+The bootstrap is idempotent:
+
+- It creates the default organization only when no organization exists.
+- It creates the configured admin user only when missing.
+- It does not overwrite an existing admin password on later boots.
 
 ## Data Model
 
 `organizations`
 
-- Seeded exactly once at bootstrap.
-- Owns users, products, customers, and orders.
+- Own users, products, categories, customers, and orders.
+- A default organization is seeded on first boot.
 
 `users`
 
-- Belongs to an organization.
-- Stores email, role, timestamps, and an Argon2 password hash.
-
-`products`
-
-- Belongs to an organization, optionally references a category.
-- Stores name, SKU, exact decimal price, non-negative stock quantity, optional
-  per-product `reorder_point`, active flag, and timestamps.
-- Enforces unique `(organization_id, sku)`.
+- Belong to an organization.
+- Store email, role, timestamps, and an Argon2 password hash.
+- Supported roles are `admin` and `staff`; current UI seeds and uses an admin.
 
 `categories`
 
-- Belongs to an organization.
-- Stores a name unique per `(organization_id, name)`.
-- Referenced by products via `ON DELETE SET NULL`.
+- Belong to an organization.
+- Have a name unique within that organization.
+- Include product counts in API responses.
+- Can be deleted without deleting products; product `category_id` becomes
+  `NULL`.
+
+`products`
+
+- Belong to an organization.
+- Optionally reference a category.
+- Store name, SKU, decimal price, non-negative stock quantity, optional
+  reorder point, active flag, and timestamps.
+- Enforce unique `(organization_id, sku)`.
+- Delete operations mark products inactive so historical orders remain valid.
 
 `stock_movements`
 
-- Append-only audit trail; belongs to an organization and a product, optionally
-  references the originating order.
-- Stores the signed `delta`, `resulting_quantity`, a `reason`
-  (`order`/`cancellation`/`manual`/`correction`/`restock`/`damage`), optional
-  note, and creation timestamp.
+- Belong to an organization and product.
+- Append-only audit trail for every stock quantity change.
+- Store signed `delta`, `resulting_quantity`, reason, optional note, optional
+  referenced order, optional acting user, and timestamp.
+- Supported reasons are `order`, `cancellation`, `manual`, `correction`,
+  `restock`, and `damage`.
 
 `customers`
 
-- Belongs to an organization.
-- Stores full name, validated email, optional phone number, and timestamps.
-- Enforces unique `(organization_id, email)`.
+- Belong to an organization.
+- Store full name, validated email, optional phone number, and timestamps.
+- Enforce unique `(organization_id, email)`.
+- Cannot be deleted after they have orders.
 
 `orders`
 
-- Belongs to an organization and references a customer.
-- Stores status, exact decimal server-computed total, and timestamps.
+- Belong to an organization and customer.
+- Store status, server-computed total amount, and timestamps.
+- Supported statuses are `active` and `cancelled`.
 
 `order_line_items`
 
-- Belongs to an order and references a product.
-- Stores quantity, unit-price snapshot, and exact decimal line total.
+- Belong to an order and reference a product.
+- Store ordered quantity, unit-price snapshot, and line total.
 
-## Business Decisions
+## Business Rules
 
-- Product SKU and customer email are unique per organization, not globally.
-- Product deletion is hard delete only when no order references exist; otherwise
-  the product is marked inactive for history.
-- Customer deletion is rejected when existing orders would be orphaned.
-- Order totals are always computed server-side.
-- Order lines keep unit-price snapshots so historical orders are unaffected by
-  later price changes.
-- Order creation validates all line items and stock before committing any write.
-- Stock decrement and stock restoration happen in the same transaction as order
-  creation and cancellation.
-- Every stock change (order, cancellation, manual adjustment) is recorded as an
-  append-only `stock_movements` audit row in the same transaction as the change.
-- Products may belong to a category (unique name per organization); deleting a
-  category leaves its products intact but uncategorized (`ON DELETE SET NULL`).
-- Low-stock is evaluated per product against its own `reorder_point`, falling
-  back to the organization-wide `LOW_STOCK_THRESHOLD` when it is unset.
-- Reporting endpoints aggregate active orders only (cancelled orders excluded)
-  with grouped SQL queries, keeping money as exact decimals.
-- List endpoints are paginated, default to descending creation order, and accept
-  `sort_by`/`sort_dir` over an allow-listed set of columns.
-- API errors use structured `detail` objects with stable error `code` values.
+- Product SKUs are normalized to uppercase.
+- Customer emails are normalized to lowercase.
+- Product prices can have at most two decimal places.
+- Product quantity and reorder point cannot be negative.
+- Order line quantities must be positive.
+- Order totals and line totals are computed by the backend, not trusted from the
+  client.
+- Order creation validates the customer, all products, and available stock
+  before committing any write.
+- Order creation decrements stock and records `order` stock movements in the
+  same database transaction.
+- Cancelling an order is idempotent for already-cancelled orders.
+- Cancelling an active order restores stock and records `cancellation` stock
+  movements in the same database transaction.
+- Manual stock adjustments reject zero deltas and any adjustment that would make
+  stock negative.
+- Low-stock evaluation uses the product `reorder_point` when present, otherwise
+  it uses `LOW_STOCK_THRESHOLD`.
+- Reports aggregate active orders only, so cancelled orders do not contribute to
+  revenue or rankings.
+- List endpoints are paginated and sort only by allow-listed fields.
+- API errors use a stable shape: `{"detail":{"code":"...","message":"..."}}`.
 
 ## API Reference
 
-Swagger/OpenAPI is generated by the live backend at `/docs` and `/openapi.json`.
+Interactive OpenAPI docs are available at `/docs`; raw OpenAPI JSON is
+available at `/openapi.json`.
 
 All business endpoints require:
 
@@ -225,51 +331,69 @@ All business endpoints require:
 Authorization: Bearer <access_token>
 ```
 
-Endpoints:
+Authentication and health:
 
-| Method   | Path                             | Notes                                                                                    |
-| -------- | -------------------------------- | ---------------------------------------------------------------------------------------- |
-| `GET`    | `/health`                        | Liveness.                                                                                |
-| `GET`    | `/ready`                         | Readiness.                                                                               |
-| `POST`   | `/auth/login`                    | Body: `email`, `password`.                                                               |
-| `POST`   | `/auth/refresh`                  | Issue a fresh token for a still-valid session (sliding expiry).                          |
-| `POST`   | `/products`                      | Create product (optional `category_id`, `reorder_point`).                                |
-| `GET`    | `/products`                      | Query: `limit`, `offset`, `q`, `include_inactive`, `category_id`, `sort_by`, `sort_dir`. |
-| `GET`    | `/products/{id}`                 | Get product.                                                                             |
-| `PUT`    | `/products/{id}`                 | Partial product update (incl. `category_id`, `reorder_point`).                           |
-| `DELETE` | `/products/{id}`                 | Hard delete or soft delete.                                                              |
-| `POST`   | `/products/{id}/adjust-stock`    | Manual signed stock adjustment. Body: `delta`, `reason`, optional `note`.                |
-| `GET`    | `/products/{id}/stock-movements` | Paginated stock-movement audit trail (newest first).                                     |
-| `POST`   | `/categories`                    | Create category.                                                                         |
-| `GET`    | `/categories`                    | Query: `limit`, `offset`, `q`; includes `product_count`.                                 |
-| `GET`    | `/categories/{id}`               | Get category.                                                                            |
-| `PUT`    | `/categories/{id}`               | Rename category.                                                                         |
-| `DELETE` | `/categories/{id}`               | Delete; products become uncategorized.                                                   |
-| `POST`   | `/customers`                     | Create customer.                                                                         |
-| `GET`    | `/customers`                     | Query: `limit`, `offset`, `q`, `sort_by`, `sort_dir`.                                    |
-| `GET`    | `/customers/{id}`                | Get customer.                                                                            |
-| `PUT`    | `/customers/{id}`                | Partial customer update.                                                                 |
-| `DELETE` | `/customers/{id}`                | Delete if no order conflict.                                                             |
-| `POST`   | `/orders`                        | Create multi-line order.                                                                 |
-| `GET`    | `/orders`                        | Query: `limit`, `offset`, `status`, `customer_id`, `sort_by`, `sort_dir`.                |
-| `GET`    | `/orders/{id}`                   | Get order with line items.                                                               |
-| `DELETE` | `/orders/{id}`                   | Cancel order and restore stock.                                                          |
-| `GET`    | `/dashboard`                     | Summary and low-stock metrics.                                                           |
-| `GET`    | `/reports/revenue-over-time`     | Daily revenue/order counts. Query: `days` (1–365).                                       |
-| `GET`    | `/reports/top-products`          | Best sellers by revenue. Query: `limit`.                                                 |
-| `GET`    | `/reports/sales-by-customer`     | Revenue/order counts per customer. Query: `limit`.                                       |
+| Method | Path            | Description                                                 |
+| ------ | --------------- | ----------------------------------------------------------- |
+| `GET`  | `/health`       | Liveness check.                                             |
+| `GET`  | `/ready`        | Readiness check.                                            |
+| `POST` | `/auth/login`   | Body: `email`, `password`. Returns bearer token and expiry. |
+| `POST` | `/auth/refresh` | Issues a fresh token for the current bearer token.          |
+| `GET`  | `/auth/me`      | Returns the authenticated user.                             |
 
-Example login:
+Products:
 
-```bash
-curl -sS http://localhost:8000/auth/login \
-  -H 'Content-Type: application/json' \
-  -d '{"email":"admin@example.com","password":"local-dev-admin-password"}'
-```
+| Method   | Path                                     | Description                                                                                                          |
+| -------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `POST`   | `/products`                              | Create product. Body: `name`, `sku`, `price`, `quantity_in_stock`, optional `category_id`, optional `reorder_point`. |
+| `GET`    | `/products`                              | List products. Query: `limit`, `offset`, `q`, `include_inactive`, `sort_by`, `sort_dir`, `category_id`.              |
+| `GET`    | `/products/{product_id}`                 | Get one active product.                                                                                              |
+| `PUT`    | `/products/{product_id}`                 | Partial update for product fields.                                                                                   |
+| `DELETE` | `/products/{product_id}`                 | Mark product inactive.                                                                                               |
+| `POST`   | `/products/{product_id}/adjust-stock`    | Apply signed stock delta. Body: `delta`, `reason`, optional `note`.                                                  |
+| `GET`    | `/products/{product_id}/stock-movements` | List stock audit records. Query: `limit`, `offset`.                                                                  |
 
-## Scripted Walkthrough
+Categories:
 
-Run this after the local stack is up.
+| Method   | Path                        | Description                                                         |
+| -------- | --------------------------- | ------------------------------------------------------------------- |
+| `POST`   | `/categories`               | Create category. Body: `name`.                                      |
+| `GET`    | `/categories`               | List categories with product counts. Query: `limit`, `offset`, `q`. |
+| `GET`    | `/categories/{category_id}` | Get one category.                                                   |
+| `PUT`    | `/categories/{category_id}` | Rename category.                                                    |
+| `DELETE` | `/categories/{category_id}` | Delete category; products become uncategorized.                     |
+
+Customers:
+
+| Method   | Path                       | Description                                                           |
+| -------- | -------------------------- | --------------------------------------------------------------------- |
+| `POST`   | `/customers`               | Create customer. Body: `full_name`, `email`, optional `phone_number`. |
+| `GET`    | `/customers`               | List customers. Query: `limit`, `offset`, `q`, `sort_by`, `sort_dir`. |
+| `GET`    | `/customers/{customer_id}` | Get one customer.                                                     |
+| `PUT`    | `/customers/{customer_id}` | Partial update for customer fields.                                   |
+| `DELETE` | `/customers/{customer_id}` | Delete customer if they have no orders.                               |
+
+Orders:
+
+| Method   | Path                 | Description                                                                                 |
+| -------- | -------------------- | ------------------------------------------------------------------------------------------- |
+| `POST`   | `/orders`            | Create order. Body: `customer_id`, `line_items: [{product_id, quantity}]`.                  |
+| `GET`    | `/orders`            | List orders. Query: `limit`, `offset`, `q`, `status`, `customer_id`, `sort_by`, `sort_dir`. |
+| `GET`    | `/orders/{order_id}` | Get order with line items.                                                                  |
+| `DELETE` | `/orders/{order_id}` | Cancel order and restore stock.                                                             |
+
+Dashboard and reports:
+
+| Method | Path                         | Description                                                                 |
+| ------ | ---------------------------- | --------------------------------------------------------------------------- |
+| `GET`  | `/dashboard`                 | Product/customer/order totals and low-stock list. Query: `low_stock_limit`. |
+| `GET`  | `/reports/revenue-over-time` | Daily revenue and order counts. Query: `days` from 1 to 365.                |
+| `GET`  | `/reports/top-products`      | Best-selling products by revenue. Query: `limit` from 1 to 50.              |
+| `GET`  | `/reports/sales-by-customer` | Revenue and order counts by customer. Query: `limit` from 1 to 50.          |
+
+## API Example
+
+Login and call the local API:
 
 ```bash
 TOKEN=$(curl -sS http://localhost:8000/auth/login \
@@ -277,6 +401,13 @@ TOKEN=$(curl -sS http://localhost:8000/auth/login \
   -d '{"email":"admin@example.com","password":"local-dev-admin-password"}' \
   | python -c 'import json,sys; print(json.load(sys.stdin)["access_token"])')
 
+curl -sS http://localhost:8000/dashboard \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+Create a product, customer, and order:
+
+```bash
 PRODUCT_ID=$(curl -sS http://localhost:8000/products \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
@@ -293,25 +424,26 @@ curl -sS http://localhost:8000/orders \
   -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d "{\"customer_id\":\"$CUSTOMER_ID\",\"line_items\":[{\"product_id\":\"$PRODUCT_ID\",\"quantity\":2}]}"
-
-curl -sS http://localhost:8000/dashboard \
-  -H "Authorization: Bearer $TOKEN"
 ```
 
-The created order decrements product stock by `2`; cancelling the order from the
-UI or `DELETE /orders/{id}` restores that stock.
+## Frontend Routes
 
-## Tests And Checks
+| Route                  | Purpose                                                                                            |
+| ---------------------- | -------------------------------------------------------------------------------------------------- |
+| `/`                    | Redirects to `/app` when authenticated or `/login` otherwise.                                      |
+| `/login`               | Public login page.                                                                                 |
+| `/app`                 | Dashboard with metrics, low-stock alerts, and recent orders.                                       |
+| `/app/products`        | Catalog table, filters, create/edit product form, stock adjustment drawer, stock movement history. |
+| `/app/categories`      | Category search, create/edit/delete, and product counts.                                           |
+| `/app/orders`          | Order list, status tabs, sorting, and order builder.                                               |
+| `/app/orders/:orderId` | Order detail with line items and cancellation action.                                              |
+| `/app/customers`       | Customer search, pagination, create/edit/delete.                                                   |
+| `/app/reports`         | Revenue chart, low-stock report, top products, and sales by customer.                              |
 
-Install local Python tooling:
+## Testing And Quality Checks
 
-```bash
-python3.14 -m venv .venv
-. .venv/bin/activate
-python -m pip install -r backend/requirements-dev.txt
-```
-
-Run backend tests against a disposable PostgreSQL container:
+Backend tests require PostgreSQL. One local pattern is to run a disposable test
+database:
 
 ```bash
 docker run --rm -d --name stockade-test-postgres \
@@ -323,116 +455,167 @@ docker run --rm -d --name stockade-test-postgres \
 
 until docker exec stockade-test-postgres pg_isready -U stockade -d stockade_test; do sleep 1; done
 
+python3.14 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r backend/requirements-dev.txt
+
 TEST_DATABASE_URL=postgresql+psycopg://stockade:local-dev-postgres-password@localhost:55433/stockade_test \
-  .venv/bin/python -m pytest backend/tests
+  python -m pytest backend/tests
 
 docker stop stockade-test-postgres
 ```
 
-Run frontend checks:
+Frontend checks:
 
 ```bash
 cd frontend
 npm ci
 npm run lint
 npm run format:check
+npm run test
 npm run build
 ```
 
-Run all pre-commit hooks:
+Pre-commit hooks:
 
 ```bash
 PRE_COMMIT_HOME=.pre-commit-cache .venv/bin/pre-commit run --all-files
 ```
 
-Validate Compose:
+Validate Compose configuration:
 
 ```bash
 STOCKADE_ENV_FILE=.env.example docker compose --env-file .env.example config
 ```
 
-Run the isolated local acceptance verifier. It starts its own Compose project on
-ports `18080` and `15173`, exercises login, product/customer/order/dashboard
-flows, and removes its temporary database volume when done:
+## Verification Scripts
+
+Run an isolated full-stack local acceptance check:
 
 ```bash
 scripts/verify-local-stack.sh
 ```
 
+The script creates a temporary env file, starts an isolated Compose project on
+ports `18080` and `15173`, verifies the frontend and backend, exercises core
+flows, and removes the temporary database volume unless `KEEP_STACK=1` is set.
+
+Verify a deployed environment:
+
+```bash
+STOCKADE_BACKEND_URL=https://stockade-backend-production.up.railway.app \
+  STOCKADE_FRONTEND_URL=https://stockade-delta.vercel.app \
+  STOCKADE_ADMIN_EMAIL=admin@stockade.app \
+  STOCKADE_ADMIN_PASSWORD=StockadePass \
+  scripts/verify-live-deployment.sh
+```
+
+The live verifier checks frontend root and deep links, backend readiness,
+OpenAPI paths, CORS, login, product/customer creation, insufficient-stock
+errors, order totals, stock decrement and restoration, cancellation, order
+detail, and dashboard metrics. It creates timestamped verification records in
+the target environment.
+
+## Docker Images
+
+Build the backend image locally:
+
+```bash
+docker build -t stockade-backend:local backend
+```
+
+Pull the published backend image:
+
+```bash
+docker pull amansikarwar/stockade-backend:latest
+```
+
+Run it with a PostgreSQL database and production-grade variables:
+
+```bash
+docker run --rm -p 8000:8000 \
+  -e DATABASE_URL='postgresql+psycopg://user:password@host:5432/stockade' \
+  -e JWT_SECRET_KEY='replace-with-at-least-32-characters' \
+  -e DEFAULT_ORGANIZATION_NAME='Stockade' \
+  -e ADMIN_EMAIL='admin@example.com' \
+  -e ADMIN_PASSWORD='replace-with-strong-password' \
+  -e CORS_ORIGINS='https://your-frontend.example.com' \
+  amansikarwar/stockade-backend:latest
+```
+
+The backend image:
+
+- Runs as a non-root `stockade` user.
+- Contains Alembic migrations and the bootstrap command.
+- Does not contain application secrets.
+- Uses the platform `PORT` environment variable when `BACKEND_PORT` is unset.
+
+Build the frontend image locally:
+
+```bash
+docker build \
+  --build-arg VITE_API_BASE_URL=http://localhost:8000 \
+  -t stockade-frontend:local \
+  frontend
+```
+
 ## Docker Hub Publishing
 
-This phase requires a Docker Hub account with permission to publish the target
-repository. Create a public repository such as
-`<namespace>/stockade-backend`, then set the repository overview in Docker Hub
-to describe Stockade, the local Compose workflow, required environment
-variables, and the image tags.
+Automated backend image publishing is configured in
+`.github/workflows/publish-backend-image.yml`.
 
-Automated publishing is available through the `Publish Backend Image` GitHub
-Actions workflow. Configure these GitHub repository variables and secrets first:
+Required GitHub repository configuration:
 
-| Name                 | Type                | Value                                                      |
-| -------------------- | ------------------- | ---------------------------------------------------------- |
-| `DOCKERHUB_USERNAME` | Repository variable | Docker Hub username or organization.                       |
-| `DOCKERHUB_IMAGE`    | Repository variable | Full image name, for example `namespace/stockade-backend`. |
-| `DOCKERHUB_TOKEN`    | Repository secret   | Docker Hub access token with push access.                  |
+| Name                 | Type                | Description                                                   |
+| -------------------- | ------------------- | ------------------------------------------------------------- |
+| `DOCKERHUB_USERNAME` | Repository variable | Docker Hub username or organization.                          |
+| `DOCKERHUB_IMAGE`    | Repository variable | Full image name, for example `amansikarwar/stockade-backend`. |
+| `DOCKERHUB_TOKEN`    | Repository secret   | Docker Hub access token with push access.                     |
 
 The workflow publishes on semantic version tags such as `v0.1.0`, and can also
 be run manually with a version input. Both modes publish the version tag and
 `latest`.
 
-Publish backend tags:
+Manual publish example:
 
 ```bash
-: "${DOCKERHUB_NAMESPACE:?Set DOCKERHUB_NAMESPACE first}"
-: "${IMAGE_VERSION:=0.1.0}"
+IMAGE=amansikarwar/stockade-backend
+VERSION=0.1.0
 
-docker build \
-  -t "$DOCKERHUB_NAMESPACE/stockade-backend:$IMAGE_VERSION" \
-  -t "$DOCKERHUB_NAMESPACE/stockade-backend:latest" \
-  backend
-
-docker push "$DOCKERHUB_NAMESPACE/stockade-backend:$IMAGE_VERSION"
-docker push "$DOCKERHUB_NAMESPACE/stockade-backend:latest"
+docker build -t "$IMAGE:$VERSION" -t "$IMAGE:latest" backend
+docker push "$IMAGE:$VERSION"
+docker push "$IMAGE:latest"
 ```
 
-Verify:
+Docker Hub overview copy lives in `docs/dockerhub-overview.md`.
 
-```bash
-: "${DOCKERHUB_NAMESPACE:?Set DOCKERHUB_NAMESPACE first}"
-: "${IMAGE_VERSION:=0.1.0}"
+## Backend Deployment
 
-docker pull "$DOCKERHUB_NAMESPACE/stockade-backend:$IMAGE_VERSION"
-docker pull "$DOCKERHUB_NAMESPACE/stockade-backend:latest"
+### Railway
+
+The live backend is hosted on Railway:
+
+```text
+https://stockade-backend-production.up.railway.app/
 ```
 
-The image contains no application secrets. Runtime configuration is supplied by
-environment variables.
+The repo includes `backend/railway.json`:
 
-Docker Hub overview copy is prepared in `docs/dockerhub-overview.md`.
+- Builder: Dockerfile
+- Dockerfile path: `Dockerfile`
+- Health check path: `/ready`
+- Health check timeout: `300`
 
-## Hosted Backend Deployment
-
-The backend can deploy to Railway or Render with a managed PostgreSQL database.
-The container runs Alembic migrations and the idempotent bootstrap on startup.
-
-### Railway Backend
-
-The repo includes `backend/railway.json` for a Railway backend service. Railway
-should build from the `backend` directory so the existing backend Dockerfile can
-keep its current build context.
-
-Required Railway service settings:
+Recommended Railway setup:
 
 - Service type: GitHub repository service
-- Root Directory: `/backend`
-- Config File: `/backend/railway.json`
-- Builder: Dockerfile, from `backend/railway.json`
-- Health check path: `/ready`, from `backend/railway.json`
-- Start command: leave empty so the Dockerfile runs `./scripts/start.sh`
-- Do not set `BACKEND_PORT`; Railway injects `PORT`, and the backend uses it
-  when `BACKEND_PORT` is unset
+- Root directory: `/backend`
+- Config file: `/backend/railway.json`
+- Start command: leave empty so the Dockerfile command runs
+- Do not set `BACKEND_PORT`; Railway injects `PORT`
+- Add a Railway PostgreSQL service and point `DATABASE_URL` at it
 
-Add a Railway Postgres service, then set backend variables:
+Required production variables:
 
 ```text
 APP_NAME=Stockade API
@@ -440,109 +623,35 @@ ENVIRONMENT=production
 LOG_LEVEL=INFO
 BACKEND_HOST=0.0.0.0
 DATABASE_URL=${{Postgres.DATABASE_URL}}
-JWT_SECRET_KEY=REPLACE_WITH_NEW_SECRET_AT_LEAST_32_CHARACTERS
+JWT_SECRET_KEY=replace-with-new-secret-at-least-32-characters
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=60
-DEFAULT_ORGANIZATION_NAME=REPLACE_WITH_ORGANIZATION_NAME
-ADMIN_EMAIL=REPLACE_WITH_ADMIN_EMAIL
-ADMIN_PASSWORD=REPLACE_WITH_INITIAL_ADMIN_PASSWORD
-CORS_ORIGINS=REPLACE_WITH_DEPLOYED_FRONTEND_ORIGIN
+DEFAULT_ORGANIZATION_NAME=Stockade
+ADMIN_EMAIL=replace-with-admin-email
+ADMIN_PASSWORD=replace-with-initial-admin-password
+CORS_ORIGINS=https://stockade-delta.vercel.app
 LOW_STOCK_THRESHOLD=5
 ```
 
-If the Railway database service is not named `Postgres`, adjust the reference in
-`DATABASE_URL` to match the service name.
-
-CLI deployment flow after creating/linking the Railway project:
+Verify after deployment:
 
 ```bash
-railway link
-railway add --database postgres
-railway variable set 'DATABASE_URL=${{Postgres.DATABASE_URL}}' --service stockade-backend
-railway variable set ENVIRONMENT=production --service stockade-backend
-railway variable set BACKEND_HOST=0.0.0.0 --service stockade-backend
-railway up ./backend --path-as-root --service stockade-backend
+curl -sS https://stockade-backend-production.up.railway.app/ready
+curl -sS https://stockade-backend-production.up.railway.app/docs
 ```
 
-Set the remaining secret values in Railway's Variables tab or with additional
-`railway variable set` commands before the first production boot.
+## Frontend Deployment
 
-Verify the backend after Railway assigns a public domain:
-
-```bash
-: "${STOCKADE_BACKEND_URL:?Set STOCKADE_BACKEND_URL first}"
-curl -sS "$STOCKADE_BACKEND_URL/ready"
-curl -sS "$STOCKADE_BACKEND_URL/docs"
-```
-
-Set a production-grade `ADMIN_PASSWORD` before first boot. The bootstrap process
-is idempotent and does not overwrite an existing admin password on later boots.
-
-### Render Backend
-
-The Render deployment guide was written against the current Render docs for
-Docker web services, Blueprints, environment variables, health checks, and
-PostgreSQL wiring.
-
-The repo includes `render.yaml` for a Render Blueprint. It defines a Docker web
-service, a managed PostgreSQL database, the `/ready` health check, generated JWT
-secret, and dashboard-provided values for deployment-specific secrets.
-
-Required Render settings:
-
-- Service type: Web Service
-- Runtime: Docker
-- Root directory: `backend`
-- Blueprint file: `render.yaml`
-- Health check path: `/ready`
-- Bind host: `0.0.0.0`
-- Port: set `BACKEND_PORT` to the platform web port, or let the platform set
-  `PORT`
-- Start command: use the Dockerfile default `./scripts/start.sh`
-
-Required production environment variables:
+The live frontend is hosted on Vercel:
 
 ```text
-APP_NAME=Stockade API
-ENVIRONMENT=production
-LOG_LEVEL=INFO
-BACKEND_HOST=0.0.0.0
-DATABASE_URL=REPLACE_WITH_RENDER_POSTGRES_INTERNAL_DATABASE_URL
-JWT_SECRET_KEY=REPLACE_WITH_NEW_SECRET_AT_LEAST_32_CHARACTERS
-JWT_ALGORITHM=HS256
-ACCESS_TOKEN_EXPIRE_MINUTES=60
-DEFAULT_ORGANIZATION_NAME=REPLACE_WITH_ORGANIZATION_NAME
-ADMIN_EMAIL=REPLACE_WITH_ADMIN_EMAIL
-ADMIN_PASSWORD=REPLACE_WITH_INITIAL_ADMIN_PASSWORD
-CORS_ORIGINS=REPLACE_WITH_DEPLOYED_FRONTEND_ORIGIN
-LOW_STOCK_THRESHOLD=5
+https://stockade-delta.vercel.app/app
 ```
 
-The Blueprint marks `DEFAULT_ORGANIZATION_NAME`, `ADMIN_EMAIL`,
-`ADMIN_PASSWORD`, and `CORS_ORIGINS` as unsynced values so they are entered in
-Render and not stored in Git.
+`frontend/vercel.json` rewrites all routes to `index.html`, allowing React
+Router deep links such as `/app/orders/:orderId` to load directly.
 
-On first boot, `backend/scripts/start.sh` applies Alembic migrations and runs the
-idempotent seed. Verify:
-
-```bash
-: "${STOCKADE_BACKEND_URL:?Set STOCKADE_BACKEND_URL first}"
-curl -sS "$STOCKADE_BACKEND_URL/ready"
-curl -sS "$STOCKADE_BACKEND_URL/docs"
-```
-
-Set a production-grade `ADMIN_PASSWORD` before first boot. The bootstrap process
-is idempotent and does not overwrite an existing admin password on later boots.
-
-## Hosted Frontend Deployment
-
-The recommended frontend path is Vercel. The deployment guide was written
-against the current Vercel docs for Vite projects and environment variables.
-
-The repo includes `frontend/vercel.json` to route deep links back to
-`index.html` for React Router.
-
-Required Vercel settings:
+Recommended Vercel setup:
 
 - Framework preset: Vite
 - Root directory: `frontend`
@@ -550,53 +659,38 @@ Required Vercel settings:
 - Build command: `npm run build`
 - Output directory: `dist`
 - Production environment variable:
-  `VITE_API_BASE_URL=https://backend.example.com`
+  `VITE_API_BASE_URL=https://stockade-backend-production.up.railway.app`
 
-Vite only exposes variables prefixed with `VITE_` to the browser bundle. The API
-base URL is public configuration, not a secret.
+After assigning or changing the frontend domain, update backend `CORS_ORIGINS`
+to the exact frontend origin and redeploy the backend.
 
-After the frontend has a production URL, update the backend `CORS_ORIGINS` to
-that exact origin and redeploy the backend. Keep CORS scoped to known frontend
-origins only.
+## CI
 
-Verify live wiring:
+`.github/workflows/ci.yml` runs on push, pull request, and manual dispatch.
 
-```bash
-STOCKADE_BACKEND_URL=https://backend.example.com \
-  STOCKADE_FRONTEND_URL=https://frontend.example.com \
-  STOCKADE_ADMIN_EMAIL=admin@example.com \
-  STOCKADE_ADMIN_PASSWORD=replace-with-production-password \
-  scripts/verify-live-deployment.sh
-```
+Backend job:
 
-The live verifier opens frontend root and deep-link routes, checks backend
-readiness, OpenAPI, CORS, login, product/customer creation, insufficient-stock
-errors, order totals, stock decrement and restoration, order details, and
-dashboard metrics. It creates timestamped verification records in the target
-deployment.
+- Starts PostgreSQL `18.4-alpine3.23`.
+- Installs `backend/requirements-dev.txt`.
+- Runs `python -m pytest tests` from `backend/`.
 
-## Submission Checklist
+Frontend job:
 
-Fill this in after phases 19-21 are completed with real public artifacts. A
-phase evidence map is available in `docs/phase-status.md`, and a longer handoff
-checklist is available in `docs/submission.md`.
-
-| Artifact                 | Value                        | Verified |
-| ------------------------ | ---------------------------- | -------- |
-| GitHub repository        | Pending remote URL           | Pending  |
-| Docker Hub backend image | Pending Docker Hub namespace | Pending  |
-| Live frontend URL        | Pending Vercel deployment    | Pending  |
-| Live backend API URL     | Pending Render deployment    | Pending  |
-
-Final acceptance requires all four artifacts to be public and verified, the full
-test suite to pass, and the frontend/backend to communicate over the live URLs.
+- Installs Node dependencies with `npm --prefix frontend ci`.
+- Runs ESLint.
+- Runs Prettier format check.
+- Runs Vitest.
+- Builds the Vite app.
 
 ## Operational Notes
 
 - Migrations are explicit Alembic migrations; the app does not auto-create
-  tables from models.
-- The backend image runs as a non-root user.
-- The frontend image serves static assets from Nginx as the `nginx` user.
-- Local Compose stores database data in a named volume.
-- Free-tier hosted services can cold start; document that behavior for users if
-  you choose free plans.
+  tables from models at runtime.
+- Free-tier hosted services may cold start.
+- The backend CORS allow-list should contain only known frontend origins.
+- The frontend API base URL is public build-time configuration, not a secret.
+- The backend image and frontend image run as non-root users.
+- Local Compose persists PostgreSQL data in the `stockade_postgres_data` named
+  volume.
+- The live verification script mutates target data by creating timestamped test
+  records; use it intentionally against production-like environments.
