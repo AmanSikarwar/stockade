@@ -27,12 +27,26 @@ const navGroups = [
   },
 ];
 
+const COLLAPSE_KEY = "stockade.nav.collapsed";
+
 export function AppShell() {
   const { logout, user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [navOpen, setNavOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem(COLLAPSE_KEY) === "1";
+  });
   const [search, setSearch] = useState("");
+
+  function toggleCollapsed() {
+    setCollapsed((prev) => {
+      const next = !prev;
+      window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      return next;
+    });
+  }
 
   const metricsQuery = useDashboardMetrics();
   const activeOrders = metricsQuery.data?.total_active_orders ?? 0;
@@ -50,14 +64,14 @@ export function AppShell() {
   }
 
   return (
-    <div className="shell">
+    <div className={`shell ${collapsed ? "nav-collapsed" : ""}`.trim()}>
       {navOpen ? (
         <button className="scrim" aria-label="Close navigation" onClick={() => setNavOpen(false)} />
       ) : null}
 
       <aside className={`nav ${navOpen ? "open" : ""}`.trim()} aria-label="Primary navigation">
         <div className="nav-brand">
-          <Logo />
+          <Logo compact={collapsed} />
           <IconButton
             icon="close"
             label="Close navigation"
@@ -75,10 +89,11 @@ export function AppShell() {
                   key={item.to}
                   to={item.to}
                   end={item.to === "/app"}
+                  title={collapsed ? item.label : undefined}
                   className={({ isActive }) => `nav-item ${isActive ? "on" : ""}`.trim()}
                 >
                   <Icon name={item.icon} size={19} stroke={1.85} />
-                  <span>{item.label}</span>
+                  <span className="nav-label">{item.label}</span>
                   {item.badgeKey && badges[item.badgeKey] != null ? (
                     <span className="badge">{badges[item.badgeKey]}</span>
                   ) : null}
@@ -108,6 +123,13 @@ export function AppShell() {
             className="menu-button"
             variant="ghost"
             onClick={() => setNavOpen(true)}
+          />
+          <IconButton
+            icon="list"
+            label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="collapse-button"
+            variant="ghost"
+            onClick={toggleCollapsed}
           />
           <form className="input-affix topbar-search" role="search" onSubmit={submitSearch}>
             <span className="affix-icon">

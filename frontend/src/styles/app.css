@@ -917,6 +917,7 @@ svg {
   top: 0;
   height: 100vh;
   z-index: 40;
+  transition: width var(--m-base) var(--ease);
 }
 .nav-brand {
   display: flex;
@@ -1119,6 +1120,59 @@ svg {
 }
 .menu-button {
   display: none;
+}
+
+/* ---- Collapsible sidebar (desktop) ---- */
+.collapse-button {
+  display: inline-flex;
+}
+
+@media (min-width: 861px) {
+  .nav-collapsed .nav {
+    width: 76px;
+  }
+  .nav-collapsed .nav-brand {
+    justify-content: center;
+    padding: 18px 0 14px;
+  }
+  .nav-collapsed .nav-group {
+    padding: 8px 10px;
+  }
+  .nav-collapsed .nav-group-label {
+    height: 1px;
+    padding: 0;
+    margin: 10px 8px 8px;
+    overflow: hidden;
+    color: transparent;
+    background: var(--border-soft);
+  }
+  .nav-collapsed .nav-item {
+    justify-content: center;
+    padding: 11px 0;
+    position: relative;
+  }
+  .nav-collapsed .nav-label {
+    display: none;
+  }
+  .nav-collapsed .nav-item .badge {
+    position: absolute;
+    top: 4px;
+    right: 12px;
+    margin: 0;
+    min-width: 16px;
+    padding: 1px 5px;
+    text-align: center;
+    background: var(--accent);
+    color: var(--text-on-accent);
+  }
+  .nav-collapsed .nav-user {
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+  }
+  .nav-collapsed .nav-user .meta {
+    display: none;
+  }
 }
 
 /* ============================================================
@@ -1633,6 +1687,9 @@ svg {
   .menu-button {
     display: inline-flex;
   }
+  .collapse-button {
+    display: none;
+  }
   .topbar-search {
     display: none;
   }
@@ -1688,6 +1745,39 @@ svg {
   .order-line .line-trash {
     line-height: 1.4;
     text-align: right;
+  }
+}
+
+@media (max-width: 560px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+  .content {
+    padding: 16px 12px;
+  }
+  .page {
+    gap: 16px;
+  }
+  .page-head h1 {
+    font-size: 26px;
+  }
+  .stat-inline {
+    gap: 18px 24px;
+  }
+  .card-head {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+  }
+  .card-head .card-toolbar {
+    margin-left: 0;
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .card-pad {
+    padding: 16px;
+  }
+  .topbar {
+    padding: 0 14px;
   }
 }
 
