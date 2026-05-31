@@ -8,7 +8,13 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.customer import Customer
 from app.models.order import Order, OrderLineItem
 from app.models.product import Product
-from app.repositories.base import OrganizationScopedRepository
+from app.repositories.base import OrganizationScopedRepository, resolve_order
+
+ORDER_SORTS = {
+    "created_at": Order.created_at,
+    "total_amount": Order.total_amount,
+    "status": Order.status,
+}
 
 
 class OrderRepository(OrganizationScopedRepository):
@@ -22,6 +28,8 @@ class OrderRepository(OrganizationScopedRepository):
         offset: int,
         status: str | None,
         customer_id: UUID | None,
+        sort_by: str | None = None,
+        sort_dir: str = "desc",
     ) -> tuple[list[Order], int]:
         conditions = [Order.organization_id == self.organization_id]
         if status is not None:
@@ -30,11 +38,12 @@ class OrderRepository(OrganizationScopedRepository):
             conditions.append(Order.customer_id == customer_id)
 
         total = self.session.scalar(select(func.count(Order.id)).where(*conditions)) or 0
+        ordering = resolve_order(ORDER_SORTS, Order.created_at, sort_by, sort_dir)
         orders = list(
             self.session.scalars(
                 select(Order)
                 .where(*conditions)
-                .order_by(Order.created_at.desc(), Order.id)
+                .order_by(ordering, Order.id)
                 .limit(limit)
                 .offset(offset)
             ).all()

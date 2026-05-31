@@ -5,25 +5,40 @@ from sqlalchemy.orm import Session
 
 from app.models.customer import Customer
 from app.models.order import Order
-from app.repositories.base import OrganizationScopedRepository
+from app.repositories.base import OrganizationScopedRepository, resolve_order
+
+CUSTOMER_SORTS = {
+    "created_at": Customer.created_at,
+    "full_name": Customer.full_name,
+    "email": Customer.email,
+}
 
 
 class CustomerRepository(OrganizationScopedRepository):
     def __init__(self, session: Session, organization_id: UUID) -> None:
         super().__init__(session, organization_id)
 
-    def list(self, *, limit: int, offset: int, search: str | None) -> tuple[list[Customer], int]:
+    def list(
+        self,
+        *,
+        limit: int,
+        offset: int,
+        search: str | None,
+        sort_by: str | None = None,
+        sort_dir: str = "desc",
+    ) -> tuple[list[Customer], int]:
         conditions = [Customer.organization_id == self.organization_id]
         if search:
             pattern = f"%{search}%"
             conditions.append(or_(Customer.full_name.ilike(pattern), Customer.email.ilike(pattern)))
 
         total = self.session.scalar(select(func.count(Customer.id)).where(*conditions)) or 0
+        ordering = resolve_order(CUSTOMER_SORTS, Customer.created_at, sort_by, sort_dir)
         customers = list(
             self.session.scalars(
                 select(Customer)
                 .where(*conditions)
-                .order_by(Customer.created_at.desc(), Customer.id)
+                .order_by(ordering, Customer.id)
                 .limit(limit)
                 .offset(offset)
             ).all()

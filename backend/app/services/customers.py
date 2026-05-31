@@ -1,3 +1,5 @@
+from collections.abc import Mapping
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -56,15 +58,40 @@ class CustomerService:
         limit: int,
         offset: int,
         search: str | None = None,
+        sort_by: str | None = None,
+        sort_dir: str = "desc",
     ) -> tuple[list[Customer], int]:
         normalized_search = search.strip() if search else None
-        return self.repository.list(limit=limit, offset=offset, search=normalized_search)
+        return self.repository.list(
+            limit=limit,
+            offset=offset,
+            search=normalized_search,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+        )
 
     def get_customer(self, customer_id: UUID) -> Customer:
         customer = self.repository.get_by_id(customer_id)
         if customer is None:
             raise CustomerNotFoundError("Customer not found")
         return customer
+
+    def update_customer(self, customer_id: UUID, changes: Mapping[str, Any]) -> Customer:
+        if not changes:
+            raise CustomerValidationError("At least one customer field must be provided")
+
+        customer = self.get_customer(customer_id)
+        normalized = normalize_customer_changes(changes)
+
+        if "email" in normalized:
+            existing = self.repository.get_by_email(normalized["email"])
+            if existing is not None and existing.id != customer.id:
+                raise DuplicateCustomerEmailError("Customer email already exists")
+
+        for field_name, value in normalized.items():
+            setattr(customer, field_name, value)
+
+        return self._commit_and_refresh(customer)
 
     def delete_customer(self, customer_id: UUID) -> None:
         customer = self.get_customer(customer_id)
@@ -86,6 +113,18 @@ class CustomerService:
             raise DuplicateCustomerEmailError("Customer email already exists") from exc
         self.session.refresh(customer)
         return customer
+
+
+def normalize_customer_changes(changes: Mapping[str, Any]) -> dict[str, Any]:
+    normalized: dict[str, Any] = {}
+    for field_name, value in changes.items():
+        if field_name == "full_name":
+            normalized[field_name] = normalize_full_name(value)
+        elif field_name == "email":
+            normalized[field_name] = normalize_email(value)
+        elif field_name == "phone_number":
+            normalized[field_name] = normalize_phone_number(value)
+    return normalized
 
 
 def normalize_full_name(value: str) -> str:

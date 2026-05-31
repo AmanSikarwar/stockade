@@ -82,6 +82,8 @@ def list_orders(
     offset: Annotated[int, Query(ge=0)] = 0,
     order_status: Annotated[Literal["active", "cancelled"] | None, Query(alias="status")] = None,
     customer_id: UUID | None = None,
+    sort_by: Annotated[Literal["created_at", "total_amount", "status"] | None, Query()] = None,
+    sort_dir: Annotated[Literal["asc", "desc"], Query()] = "desc",
 ) -> OrderListResponse:
     service = OrderService(session, current_user.organization_id)
     orders, total = service.list_orders(
@@ -89,6 +91,8 @@ def list_orders(
         offset=offset,
         status=order_status,
         customer_id=customer_id,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
     return OrderListResponse(
         items=[OrderSummaryResponse.model_validate(order) for order in orders],

@@ -6,7 +6,15 @@ from sqlalchemy.orm import Session
 
 from app.models.order import OrderLineItem
 from app.models.product import Product
-from app.repositories.base import OrganizationScopedRepository
+from app.repositories.base import OrganizationScopedRepository, resolve_order
+
+PRODUCT_SORTS = {
+    "created_at": Product.created_at,
+    "name": Product.name,
+    "sku": Product.sku,
+    "price": Product.price,
+    "quantity_in_stock": Product.quantity_in_stock,
+}
 
 
 class ProductRepository(OrganizationScopedRepository):
@@ -20,6 +28,8 @@ class ProductRepository(OrganizationScopedRepository):
         offset: int,
         search: str | None,
         include_inactive: bool,
+        sort_by: str | None = None,
+        sort_dir: str = "desc",
     ) -> tuple[list[Product], int]:
         conditions = [Product.organization_id == self.organization_id]
         if not include_inactive:
@@ -29,11 +39,12 @@ class ProductRepository(OrganizationScopedRepository):
             conditions.append(or_(Product.name.ilike(pattern), Product.sku.ilike(pattern)))
 
         total = self.session.scalar(select(func.count(Product.id)).where(*conditions)) or 0
+        ordering = resolve_order(PRODUCT_SORTS, Product.created_at, sort_by, sort_dir)
         products = list(
             self.session.scalars(
                 select(Product)
                 .where(*conditions)
-                .order_by(Product.created_at.desc(), Product.id)
+                .order_by(ordering, Product.id)
                 .limit(limit)
                 .offset(offset)
             ).all()

@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -17,6 +17,9 @@ from app.services.products import (
     ProductService,
     ProductValidationError,
 )
+
+ProductSortField = Literal["created_at", "name", "sku", "price", "quantity_in_stock"]
+SortDirection = Literal["asc", "desc"]
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -50,6 +53,8 @@ def list_products(
     offset: Annotated[int, Query(ge=0)] = 0,
     q: Annotated[str | None, Query(min_length=1, max_length=100)] = None,
     include_inactive: bool = False,
+    sort_by: ProductSortField | None = None,
+    sort_dir: SortDirection = "desc",
 ) -> ProductListResponse:
     service = ProductService(session, current_user.organization_id)
     products, total = service.list_products(
@@ -57,6 +62,8 @@ def list_products(
         offset=offset,
         search=q,
         include_inactive=include_inactive,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
     )
     return ProductListResponse(
         items=[ProductResponse.model_validate(product) for product in products],

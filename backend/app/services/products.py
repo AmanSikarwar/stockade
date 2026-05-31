@@ -60,6 +60,8 @@ class ProductService:
         offset: int,
         search: str | None = None,
         include_inactive: bool = False,
+        sort_by: str | None = None,
+        sort_dir: str = "desc",
     ) -> tuple[list[Product], int]:
         normalized_search = search.strip() if search else None
         return self.repository.list(
@@ -67,6 +69,8 @@ class ProductService:
             offset=offset,
             search=normalized_search,
             include_inactive=include_inactive,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
         )
 
     def get_product(self, product_id: UUID) -> Product:
