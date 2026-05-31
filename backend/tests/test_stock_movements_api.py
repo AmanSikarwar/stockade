@@ -143,9 +143,9 @@ def test_order_lifecycle_records_movements(
         f"/products/{product['id']}/stock-movements", headers=auth_headers
     ).json()
     assert after_cancel["total"] == 2
-    # Newest first: the cancellation restores stock.
-    cancellation = after_cancel["items"][0]
+    by_reason = {item["reason"]: item for item in after_cancel["items"]}
+    assert by_reason["order"]["delta"] == -8
+    cancellation = by_reason["cancellation"]
     assert cancellation["delta"] == 8
     assert cancellation["resulting_quantity"] == 50
-    assert cancellation["reason"] == "cancellation"
     assert cancellation["reference_order_id"] == order["id"]
