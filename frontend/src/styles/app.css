@@ -2004,6 +2004,78 @@ svg {
   }
 }
 
+/* Data tables collapse into a card stack on phones (design-kit pattern).
+   Each row becomes a card; the first cell is the title and the rest show
+   their column header as an inline label via data-label. */
+@media (max-width: 640px) {
+  .tbl-wrap {
+    overflow-x: visible;
+  }
+  .tbl thead {
+    display: none;
+  }
+  .tbl,
+  .tbl tbody {
+    display: block;
+    width: 100%;
+  }
+  .tbl tbody tr {
+    display: block;
+    padding: 2px 6px 6px;
+    margin-bottom: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    background: var(--surface);
+  }
+  .tbl tbody tr:last-child {
+    margin-bottom: 0;
+  }
+  .tbl tbody tr:hover {
+    background: var(--surface);
+  }
+  .tbl tbody td {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 9px 8px;
+    border: none;
+    border-bottom: 1px solid var(--border-soft);
+    white-space: normal;
+    text-align: right;
+  }
+  .tbl tbody td:last-child {
+    border-bottom: none;
+  }
+  .tbl tbody td::before {
+    content: attr(data-label);
+    flex: none;
+    font: 600 11px var(--font-sans);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--text-3);
+    text-align: left;
+  }
+  /* primary (first) cell becomes the card title — no label, left aligned */
+  .tbl tbody td:first-child {
+    justify-content: flex-start;
+    padding: 11px 8px 10px;
+  }
+  .tbl tbody td:first-child::before {
+    content: none;
+  }
+  /* unlabelled cells (e.g. row actions) align to the right with no label */
+  .tbl tbody td[data-label=""]::before {
+    content: none;
+  }
+  .tbl tbody td[data-label=""] {
+    justify-content: flex-end;
+  }
+  .tbl tbody td .row-actions {
+    justify-content: flex-end;
+  }
+}
+
 @media (max-width: 560px) {
   .metric-grid {
     grid-template-columns: 1fr;

@@ -69,7 +69,11 @@ export function DataTable({
                   .filter(Boolean)
                   .join(" ");
                 return (
-                  <td key={column.key} className={cellClass || undefined}>
+                  <td
+                    key={column.key}
+                    className={cellClass || undefined}
+                    data-label={typeof column.header === "string" ? column.header : ""}
+                  >
                     {column.render ? column.render(row) : row[column.key]}
                   </td>
                 );
