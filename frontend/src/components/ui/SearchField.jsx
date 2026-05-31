@@ -1,11 +1,13 @@
 import { Icon } from "../icons/Icon";
 
-export function SearchField({ label = "Search", ...props }) {
+export function SearchField({ label = "Search", className = "", ...props }) {
   return (
-    <label className="search-field">
+    <div className={`input-affix ${className}`.trim()}>
+      <span className="affix-icon">
+        <Icon name="search" size={16} />
+      </span>
       <span className="sr-only">{label}</span>
-      <Icon name="search" size={18} />
-      <input type="search" {...props} />
-    </label>
+      <input className="input" type="search" aria-label={label} {...props} />
+    </div>
   );
 }

@@ -7,18 +7,21 @@ import App from "./App.jsx";
 import { queryClient } from "./api/queryClient";
 import { AuthProvider } from "./auth/AuthContext.jsx";
 import { NotificationProvider } from "./components/feedback/NotificationContext.jsx";
+import { ThemeProvider } from "./theme/ThemeContext.jsx";
 import "./styles/app.css";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <NotificationProvider>
-            <App />
-          </NotificationProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <BrowserRouter>
+          <AuthProvider>
+            <NotificationProvider>
+              <App />
+            </NotificationProvider>
+          </AuthProvider>
+        </BrowserRouter>
+      </QueryClientProvider>
+    </ThemeProvider>
   </StrictMode>,
 );

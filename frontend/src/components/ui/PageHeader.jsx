@@ -1,12 +1,22 @@
-export function PageHeader({ actions, eyebrow, title, children }) {
+import { Link } from "react-router";
+
+import { Icon } from "../icons/Icon";
+
+export function PageHeader({ actions, title, subtitle, children, backTo, backLabel }) {
   return (
-    <header className="page-header">
+    <header className="page-head">
       <div>
-        {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
+        {backTo ? (
+          <Link className="crumb" to={backTo}>
+            <Icon name="chevron" size={14} stroke={2} className="flip-x" />
+            <span className="t-caption">{backLabel ?? "Back"}</span>
+          </Link>
+        ) : null}
         <h1>{title}</h1>
-        {children ? <div className="page-copy">{children}</div> : null}
+        {subtitle ? <p className="sub t-body">{subtitle}</p> : null}
+        {children ? <div className="sub t-body">{children}</div> : null}
       </div>
-      {actions ? <div className="page-actions">{actions}</div> : null}
+      {actions ? <div className="actions">{actions}</div> : null}
     </header>
   );
 }

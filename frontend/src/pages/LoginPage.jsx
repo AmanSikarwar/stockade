@@ -45,56 +45,69 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="login-page">
-      <section className="login-card" aria-labelledby="login-heading">
-        <div className="login-art" aria-hidden="true">
-          <Logo />
+    <main className="login">
+      <aside className="login-art" aria-hidden="true">
+        <Logo markSize={34} />
+        <div className="hero">
           <LoginHero />
+          <div>
+            <div className="t-h2" style={{ marginBottom: 8 }}>
+              Everything in its place.
+            </div>
+            <p className="t-body-lg text-2">
+              Inventory, customers and orders — one calm, dependable place to run your stock.
+            </p>
+          </div>
         </div>
+        <div className="t-caption muted">Self-hosted · your data stays yours</div>
+      </aside>
 
-        <div className="login-panel">
-          <Logo />
-          <p className="eyebrow">Secure workspace</p>
-          <h1 id="login-heading">Sign in to Stockade</h1>
-          <p className="panel-copy">
-            Manage products, customers, orders, and inventory levels from one controlled workspace.
-          </p>
-
-          <form className="login-form" onSubmit={handleSubmit}>
-            <FormField
-              autoComplete="email"
-              id="email"
-              inputMode="email"
-              label="Email"
-              name="email"
-              onChange={(event) => setEmail(event.target.value)}
-              required
-              type="email"
-              value={email}
-            />
-
-            <FormField
-              autoComplete="current-password"
-              id="password"
-              label="Password"
-              name="password"
-              onChange={(event) => setPassword(event.target.value)}
-              required
-              type="password"
-              value={password}
-            />
-
-            {error ? <Alert tone="danger">{error}</Alert> : null}
-
-            <Button icon="login" isLoading={isSubmitting} type="submit">
+      <section className="login-panel" aria-labelledby="login-heading">
+        <form className="login-form" onSubmit={handleSubmit}>
+          <div className="head">
+            <h1 className="t-h1" id="login-heading">
               Sign in
-            </Button>
-          </form>
+            </h1>
+            <p className="t-body text-2" style={{ marginTop: 6 }}>
+              Welcome back to Stockade.
+            </p>
+          </div>
 
-          <p className="api-footnote">
+          <FormField
+            autoComplete="email"
+            id="email"
+            inputMode="email"
+            label="Email"
+            name="email"
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="you@example.com"
+            required
+            type="email"
+            value={email}
+          />
+
+          <FormField
+            autoComplete="current-password"
+            id="password"
+            label="Password"
+            name="password"
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="••••••••"
+            required
+            type="password"
+            value={password}
+          />
+
+          {error ? <Alert tone="danger">{error}</Alert> : null}
+
+          <Button block icon="login" isLoading={isSubmitting} size="lg" type="submit">
+            Sign in
+          </Button>
+
+          <p className="t-caption muted" style={{ textAlign: "center" }}>
             API endpoint <span className="t-num">{getApiBaseUrl()}</span>
           </p>
-        </div>
+        </form>
       </section>
     </main>
   );

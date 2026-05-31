@@ -1,22 +1,28 @@
 import { EmptySearch } from "../illustrations/Illustrations";
 
-export function DataTable({ columns, emptyMessage = "No records found.", rows }) {
+export function DataTable({ columns, rows, emptyMessage = "No records found.", empty }) {
   if (!rows?.length) {
     return (
-      <div className="empty-state">
-        <EmptySearch />
-        <p>{emptyMessage}</p>
-      </div>
+      empty ?? (
+        <div className="empty-state">
+          <EmptySearch />
+          <p>{emptyMessage}</p>
+        </div>
+      )
     );
   }
 
   return (
-    <div className="table-wrap">
-      <table>
+    <div className="tbl-wrap">
+      <table className="tbl">
         <thead>
           <tr>
             {columns.map((column) => (
-              <th key={column.key} scope="col">
+              <th
+                key={column.key}
+                scope="col"
+                className={column.align === "right" ? "t-right" : undefined}
+              >
                 {column.header}
               </th>
             ))}
@@ -25,9 +31,16 @@ export function DataTable({ columns, emptyMessage = "No records found.", rows })
         <tbody>
           {rows.map((row) => (
             <tr key={row.id}>
-              {columns.map((column) => (
-                <td key={column.key}>{column.render ? column.render(row) : row[column.key]}</td>
-              ))}
+              {columns.map((column) => {
+                const cellClass = [column.align === "right" ? "t-right" : "", column.cellClassName]
+                  .filter(Boolean)
+                  .join(" ");
+                return (
+                  <td key={column.key} className={cellClass || undefined}>
+                    {column.render ? column.render(row) : row[column.key]}
+                  </td>
+                );
+              })}
             </tr>
           ))}
         </tbody>

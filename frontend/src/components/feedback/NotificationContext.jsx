@@ -1,8 +1,16 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 
 import { Icon } from "../icons/Icon";
+import { IconButton } from "../ui/IconButton";
 
 const NotificationContext = createContext(null);
+
+const toneIcon = {
+  danger: "outStock",
+  info: "info",
+  success: "inStock",
+  warning: "lowStock",
+};
 
 export function NotificationProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
@@ -26,25 +34,25 @@ export function NotificationProvider({ children }) {
   return (
     <NotificationContext.Provider value={value}>
       {children}
-      <div className="notifications" aria-live="polite" aria-relevant="additions text">
+      <div className="toasts" aria-live="polite" aria-relevant="additions text">
         {notifications.map((notification) => (
-          <article
-            className={`notification notification-${notification.tone}`}
-            key={notification.id}
-          >
-            <Icon name={notification.tone === "success" ? "check" : "info"} size={18} />
-            <div>
+          <article className={`toast tone-${notification.tone}`} key={notification.id}>
+            <Icon
+              name={toneIcon[notification.tone] ?? "info"}
+              size={20}
+              stroke={2}
+              className="toast-ico"
+            />
+            <div className="toast-body">
               {notification.title ? <strong>{notification.title}</strong> : null}
               <p>{notification.message}</p>
             </div>
-            <button
-              aria-label="Dismiss notification"
-              className="icon-button"
+            <IconButton
+              icon="close"
+              label="Dismiss notification"
+              size="sm"
               onClick={() => dismiss(notification.id)}
-              type="button"
-            >
-              <Icon name="close" size={16} />
-            </button>
+            />
           </article>
         ))}
       </div>

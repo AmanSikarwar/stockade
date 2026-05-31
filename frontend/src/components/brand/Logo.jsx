@@ -17,19 +17,19 @@ function MarkB({ size = 48, c1 = "currentColor", c2 = "rgba(255,255,255,.34)" })
   );
 }
 
-export function MarkBadge({ size = 40, className = "" }) {
+export function MarkBadge({ size = 32 }) {
   return (
-    <span className={`mark-badge ${className}`} style={{ "--mark-size": `${size}px` }}>
-      <MarkB size={size * 0.78} c1="var(--text-on-accent)" c2="rgba(255,255,255,.42)" />
+    <span className="mark-badge" style={{ width: size, height: size }}>
+      <MarkB size={Math.round(size * 0.78)} c1="var(--text-on-accent)" c2="rgba(255,255,255,.42)" />
     </span>
   );
 }
 
-export function Logo({ compact = false }) {
+export function Logo({ compact = false, markSize = 32 }) {
   return (
-    <span className="brand-lockup">
-      <MarkBadge size={40} />
-      {!compact ? <span className="brand-wordmark">Stockade</span> : null}
+    <span className="brand">
+      <MarkBadge size={markSize} />
+      {!compact ? <span className="wordmark">Stockade</span> : null}
     </span>
   );
 }

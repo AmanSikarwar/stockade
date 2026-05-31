@@ -1,36 +1,69 @@
-import { Link, useNavigate, useParams } from "react-router";
 import { useMemo, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
 
 import { ApiError } from "../api/client";
-import { useCustomers } from "../api/customers";
+import { useCustomer, useCustomers } from "../api/customers";
 import { useCancelOrder, useCreateOrder, useOrder, useOrders } from "../api/orders";
 import { useProducts } from "../api/products";
 import { useNotifications } from "../components/feedback/NotificationContext";
 import { EmptyOrders } from "../components/illustrations/Illustrations";
+import { Icon } from "../components/icons/Icon";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
+import { Card } from "../components/ui/Card";
 import { DataTable } from "../components/ui/DataTable";
-import { FormField } from "../components/ui/FormField";
+import { ProductCell } from "../components/ui/EntityCell";
+import { IconButton } from "../components/ui/IconButton";
 import { LoadingState } from "../components/ui/LoadingState";
 import { PageHeader } from "../components/ui/PageHeader";
-import { Panel } from "../components/ui/Panel";
-import { StatusBadge } from "../components/ui/StatusBadge";
+import { Pagination } from "../components/ui/Pagination";
+import { Pill } from "../components/ui/Pill";
+import { Select } from "../components/ui/Select";
+import { Tabs } from "../components/ui/Tabs";
+import { formatCurrency, formatDateTime } from "../lib/format";
 
-const emptyOrderLine = () => ({
-  clientId: crypto.randomUUID(),
-  product_id: "",
-  quantity: "1",
-});
+const PAGE_SIZE = 10;
+
+const statusTabs = [
+  { label: "All", value: "all" },
+  { label: "Active", value: "active" },
+  { label: "Cancelled", value: "cancelled" },
+];
+
+const emptyOrderLine = () => ({ clientId: crypto.randomUUID(), product_id: "", quantity: "1" });
+
+function statusTone(status) {
+  return status === "active" ? "success" : "danger";
+}
 
 export default function OrdersPage() {
   const { notify } = useNotifications();
   const navigate = useNavigate();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [confirmingCancelId, setConfirmingCancelId] = useState(null);
-  const ordersQuery = useOrders({ limit: 50, offset: 0 });
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [offset, setOffset] = useState(0);
+
+  const ordersQuery = useOrders({
+    limit: PAGE_SIZE,
+    offset,
+    status: statusFilter === "all" ? undefined : statusFilter,
+  });
+  const customersQuery = useCustomers({ limit: 100, offset: 0 });
   const createOrder = useCreateOrder();
   const cancelOrder = useCancelOrder();
+
   const rows = ordersQuery.data?.items ?? [];
+  const total = ordersQuery.data?.total ?? 0;
+  const customerMap = useMemo(
+    () => new Map((customersQuery.data?.items ?? []).map((customer) => [customer.id, customer])),
+    [customersQuery.data?.items],
+  );
+
+  function selectTab(value) {
+    setStatusFilter(value);
+    setOffset(0);
+  }
 
   const columns = [
     {
@@ -45,56 +78,80 @@ export default function OrdersPage() {
     {
       header: "Customer",
       key: "customer_id",
-      render: (order) => <span className="t-num">{order.customer_id.slice(0, 8)}</span>,
+      render: (order) => {
+        const customer = customerMap.get(order.customer_id);
+        return customer ? (
+          customer.full_name
+        ) : (
+          <span className="t-num">{order.customer_id.slice(0, 8)}</span>
+        );
+      },
+    },
+    {
+      header: "Date",
+      key: "created_at",
+      render: (order) => <span className="text-2">{formatDateTime(order.created_at)}</span>,
+    },
+    {
+      header: "Total",
+      key: "total_amount",
+      align: "right",
+      cellClassName: "num cell-strong",
+      render: (order) => formatCurrency(order.total_amount),
     },
     {
       header: "Status",
       key: "status",
       render: (order) => (
-        <StatusBadge tone={order.status === "active" ? "success" : "info"}>
-          {order.status}
-        </StatusBadge>
+        <Pill tone={statusTone(order.status)}>
+          {order.status === "active" ? "Active" : "Cancelled"}
+        </Pill>
       ),
     },
     {
-      header: "Total",
-      key: "total_amount",
-      render: (order) => <span className="t-num">{formatCurrency(order.total_amount)}</span>,
-    },
-    {
-      header: "Created",
-      key: "created_at",
-      render: (order) => formatDate(order.created_at),
-    },
-    {
-      header: "Actions",
+      header: "",
       key: "actions",
+      align: "right",
       render: (order) => {
         const isConfirming = confirmingCancelId === order.id;
+        if (order.status !== "active") {
+          return (
+            <div className="row-actions">
+              <Link className="btn btn-secondary btn-sm" to={`/app/orders/${order.id}`}>
+                View
+              </Link>
+            </div>
+          );
+        }
+        if (isConfirming) {
+          return (
+            <div className="row-actions">
+              <Button
+                size="sm"
+                variant="danger"
+                isLoading={cancelOrder.isPending && cancelOrder.variables === order.id}
+                onClick={() => handleCancelOrder(order)}
+              >
+                Confirm
+              </Button>
+              <Button size="sm" variant="secondary" onClick={() => setConfirmingCancelId(null)}>
+                Keep
+              </Button>
+            </div>
+          );
+        }
         return (
           <div className="row-actions">
-            <Link className="button button-secondary" to={`/app/orders/${order.id}`}>
+            <Link className="btn btn-secondary btn-sm" to={`/app/orders/${order.id}`}>
               View
             </Link>
-            {order.status === "active" ? (
-              <>
-                <Button
-                  icon="close"
-                  isLoading={cancelOrder.isPending && cancelOrder.variables === order.id}
-                  onClick={() =>
-                    isConfirming ? handleCancelOrder(order) : setConfirmingCancelId(order.id)
-                  }
-                  variant={isConfirming ? "danger" : "secondary"}
-                >
-                  {isConfirming ? "Confirm" : "Cancel"}
-                </Button>
-                {isConfirming ? (
-                  <Button onClick={() => setConfirmingCancelId(null)} variant="secondary">
-                    Keep
-                  </Button>
-                ) : null}
-              </>
-            ) : null}
+            <IconButton
+              icon="close"
+              label={`Cancel order ${order.id.slice(0, 8)}`}
+              variant="secondary"
+              size="sm"
+              onClick={() => setConfirmingCancelId(order.id)}
+            />
           </div>
         );
       },
@@ -104,9 +161,7 @@ export default function OrdersPage() {
   async function handleCreateOrder(payload) {
     const order = await createOrder.mutateAsync(payload);
     notify({
-      message: `Order #${order.id.slice(0, 8)} was created with server total ${formatCurrency(
-        order.total_amount,
-      )}.`,
+      message: `Order #${order.id.slice(0, 8)} placed · server total ${formatCurrency(order.total_amount)}.`,
       tone: "success",
       title: "Order placed",
     });
@@ -118,7 +173,10 @@ export default function OrdersPage() {
     try {
       await cancelOrder.mutateAsync(order.id);
       setConfirmingCancelId(null);
-      notify({ message: `Order #${order.id.slice(0, 8)} was cancelled.`, tone: "success" });
+      notify({
+        message: `Order #${order.id.slice(0, 8)} cancelled · stock restored.`,
+        tone: "success",
+      });
     } catch (error) {
       notify({
         message: error.message || "Unable to cancel order.",
@@ -129,21 +187,19 @@ export default function OrdersPage() {
   }
 
   return (
-    <section className="page-stack" aria-labelledby="orders-heading">
+    <div className="page">
       <PageHeader
+        title="Orders"
+        subtitle={`${total} ${total === 1 ? "order" : "orders"}`}
         actions={
-          <Button icon="plus" onClick={() => setIsFormOpen(true)}>
+          <Button icon="plus" onClick={() => setIsFormOpen((open) => !open)}>
             New order
           </Button>
         }
-        eyebrow="Orders"
-        title="Order management"
-      >
-        Create multi-line orders, review server totals, and inspect price snapshots.
-      </PageHeader>
+      />
 
       {isFormOpen ? (
-        <OrderFormPanel
+        <OrderBuilder
           error={createOrder.error}
           isSaving={createOrder.isPending}
           onCancel={() => setIsFormOpen(false)}
@@ -151,41 +207,66 @@ export default function OrdersPage() {
         />
       ) : null}
 
-      <Panel description={`${ordersQuery.data?.total ?? 0} orders found.`} title="Order list">
-        {ordersQuery.isPending ? <LoadingState label="Loading orders..." /> : null}
-        {ordersQuery.isError ? (
-          <Alert tone="danger" title="Orders unavailable">
-            {ordersQuery.error.message || "Unable to load orders."}
-          </Alert>
-        ) : null}
-        {!ordersQuery.isPending && !ordersQuery.isError ? (
-          rows.length ? (
-            <DataTable columns={columns} rows={rows} />
-          ) : (
-            <div className="empty-state">
-              <EmptyOrders />
-              <p>No orders have been placed yet.</p>
-            </div>
-          )
-        ) : null}
-      </Panel>
-    </section>
+      <Card
+        title="All orders"
+        count={total}
+        toolbar={<Tabs items={statusTabs} value={statusFilter} onChange={selectTab} />}
+        footer={
+          total > 0 ? (
+            <Pagination total={total} limit={PAGE_SIZE} offset={offset} onChange={setOffset} />
+          ) : null
+        }
+      >
+        {ordersQuery.isPending ? (
+          <LoadingState label="Loading orders..." />
+        ) : ordersQuery.isError ? (
+          <div className="card-pad">
+            <Alert tone="danger" title="Orders unavailable">
+              {ordersQuery.error.message || "Unable to load orders."}
+            </Alert>
+          </div>
+        ) : (
+          <DataTable
+            columns={columns}
+            rows={rows}
+            empty={
+              <div className="empty-state">
+                <EmptyOrders />
+                <h3>No orders here</h3>
+                <p>Create a multi-line order to reserve inventory and capture prices.</p>
+                <Button icon="plus" onClick={() => setIsFormOpen(true)}>
+                  New order
+                </Button>
+              </div>
+            }
+          />
+        )}
+      </Card>
+    </div>
   );
 }
 
-function OrderFormPanel({ error, isSaving, onCancel, onSubmit }) {
+function OrderBuilder({ error, isSaving, onCancel, onSubmit }) {
   const customersQuery = useCustomers({ limit: 100, offset: 0 });
   const productsQuery = useProducts({ limit: 100, offset: 0 });
   const [customerId, setCustomerId] = useState("");
   const [lineItems, setLineItems] = useState([emptyOrderLine()]);
   const [validationError, setValidationError] = useState("");
+
+  const products = productsQuery.data?.items ?? [];
   const productMap = useMemo(
-    () => new Map((productsQuery.data?.items ?? []).map((product) => [product.id, product])),
-    [productsQuery.data?.items],
+    () => new Map(products.map((product) => [product.id, product])),
+    [products],
   );
-  const indicativeTotal = lineItems.reduce((sum, lineItem) => {
-    const product = productMap.get(lineItem.product_id);
-    const quantity = Number(lineItem.quantity);
+
+  const overStockLines = lineItems.filter((line) => {
+    const product = productMap.get(line.product_id);
+    return product && Number(line.quantity) > product.quantity_in_stock;
+  });
+
+  const subtotal = lineItems.reduce((sum, line) => {
+    const product = productMap.get(line.product_id);
+    const quantity = Number(line.quantity);
     if (!product || Number.isNaN(quantity)) {
       return sum;
     }
@@ -194,14 +275,12 @@ function OrderFormPanel({ error, isSaving, onCancel, onSubmit }) {
 
   function updateLine(clientId, field, value) {
     setLineItems((current) =>
-      current.map((lineItem) =>
-        lineItem.clientId === clientId ? { ...lineItem, [field]: value } : lineItem,
-      ),
+      current.map((line) => (line.clientId === clientId ? { ...line, [field]: value } : line)),
     );
   }
 
   function removeLine(clientId) {
-    setLineItems((current) => current.filter((lineItem) => lineItem.clientId !== clientId));
+    setLineItems((current) => current.filter((line) => line.clientId !== clientId));
   }
 
   async function handleSubmit(event) {
@@ -210,9 +289,9 @@ function OrderFormPanel({ error, isSaving, onCancel, onSubmit }) {
 
     const payload = {
       customer_id: customerId,
-      line_items: lineItems.map((lineItem) => ({
-        product_id: lineItem.product_id,
-        quantity: Number(lineItem.quantity),
+      line_items: lineItems.map((line) => ({
+        product_id: line.product_id,
+        quantity: Number(line.quantity),
       })),
     };
     const invalidMessage = validateOrderPayload(payload);
@@ -224,124 +303,171 @@ function OrderFormPanel({ error, isSaving, onCancel, onSubmit }) {
     try {
       await onSubmit(payload);
     } catch {
-      // Mutation state renders the API error through the shared alert below.
+      // Mutation error is surfaced through the shared alert below.
     }
   }
 
-  return (
-    <Panel
-      className="form-panel"
-      description="The total below is indicative. The API computes the authoritative total and snapshots prices."
-      title="Create order"
-    >
-      <form className="order-form" onSubmit={handleSubmit}>
-        <FormField id="order-customer" label="Customer" required>
-          <select
-            disabled={customersQuery.isPending}
-            id="order-customer"
-            onChange={(event) => setCustomerId(event.target.value)}
-            required
-            value={customerId}
-          >
-            <option value="">Select a customer</option>
-            {(customersQuery.data?.items ?? []).map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {customer.full_name} ({customer.email})
-              </option>
-            ))}
-          </select>
-        </FormField>
+  const blockPlacement = overStockLines.length > 0;
 
-        <div className="line-editor">
-          <div className="line-editor-head">
-            <div>
-              <h3>Line items</h3>
-              <p>Choose active products and quantities to reserve inventory.</p>
-            </div>
-            <Button
-              icon="plus"
-              onClick={() => setLineItems((current) => [...current, emptyOrderLine()])}
-              variant="secondary"
+  return (
+    <Card title="New order" pad>
+      <form onSubmit={handleSubmit} className="two-col wide-left">
+        <div className="stack">
+          <div className="field">
+            <label className="field-label" htmlFor="order-customer">
+              Customer
+              <span className="req" aria-hidden="true">
+                {" "}
+                *
+              </span>
+            </label>
+            <Select
+              id="order-customer"
+              disabled={customersQuery.isPending}
+              onChange={(event) => setCustomerId(event.target.value)}
+              required
+              value={customerId}
             >
-              Add line
-            </Button>
+              <option value="">Select a customer…</option>
+              {(customersQuery.data?.items ?? []).map((customer) => (
+                <option key={customer.id} value={customer.id}>
+                  {customer.full_name} ({customer.email})
+                </option>
+              ))}
+            </Select>
           </div>
 
-          {lineItems.map((lineItem, index) => {
-            const selectedProduct = productMap.get(lineItem.product_id);
-            return (
-              <div className="order-line" key={lineItem.clientId}>
-                <FormField
-                  id={`line-product-${lineItem.clientId}`}
-                  label={`Product ${index + 1}`}
-                  required
-                >
-                  <select
-                    disabled={productsQuery.isPending}
-                    id={`line-product-${lineItem.clientId}`}
-                    onChange={(event) =>
-                      updateLine(lineItem.clientId, "product_id", event.target.value)
-                    }
+          <div className="field">
+            <span className="field-label">Line items</span>
+            <div className="order-lines-head">
+              <span>Product</span>
+              <span className="text-right">Qty</span>
+              <span className="text-right">Unit</span>
+              <span className="text-right">Total</span>
+              <span />
+            </div>
+
+            {lineItems.map((line) => {
+              const product = productMap.get(line.product_id);
+              const quantity = Number(line.quantity) || 0;
+              const lineTotal = product ? Number(product.price) * quantity : 0;
+              const over = product && quantity > product.quantity_in_stock;
+              return (
+                <div className="order-line" key={line.clientId}>
+                  <div className="field-product">
+                    <Select
+                      aria-label="Product"
+                      disabled={productsQuery.isPending}
+                      onChange={(event) =>
+                        updateLine(line.clientId, "product_id", event.target.value)
+                      }
+                      required
+                      value={line.product_id}
+                    >
+                      <option value="">Select a product…</option>
+                      {products.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.name} · {option.sku} · {option.quantity_in_stock} available
+                        </option>
+                      ))}
+                    </Select>
+                    {over ? (
+                      <div className="field-error" style={{ marginTop: 6 }}>
+                        <Icon name="lowStock" size={13} stroke={2} />
+                        Only {product.quantity_in_stock} in stock
+                      </div>
+                    ) : null}
+                  </div>
+                  <input
+                    className={`input ${over ? "is-error" : ""}`.trim()}
+                    aria-label="Quantity"
+                    inputMode="numeric"
+                    min="1"
+                    onChange={(event) => updateLine(line.clientId, "quantity", event.target.value)}
                     required
-                    value={lineItem.product_id}
-                  >
-                    <option value="">Select a product</option>
-                    {(productsQuery.data?.items ?? []).map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name} · {product.sku} · {product.quantity_in_stock} available
-                      </option>
-                    ))}
-                  </select>
-                </FormField>
-                <FormField
-                  id={`line-quantity-${lineItem.clientId}`}
-                  inputMode="numeric"
-                  label="Quantity"
-                  min="1"
-                  onChange={(event) =>
-                    updateLine(lineItem.clientId, "quantity", event.target.value)
-                  }
-                  required
-                  step="1"
-                  type="number"
-                  value={lineItem.quantity}
-                />
-                <div className="line-total">
-                  <span>Line estimate</span>
-                  <strong className="t-num">
-                    {formatCurrency(
-                      (Number(selectedProduct?.price ?? 0) || 0) * Number(lineItem.quantity || 0),
-                    )}
-                  </strong>
+                    step="1"
+                    style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}
+                    type="number"
+                    value={line.quantity}
+                  />
+                  <div className="line-static unit">
+                    {product ? formatCurrency(product.price) : "—"}
+                  </div>
+                  <div className="line-static total">{formatCurrency(lineTotal)}</div>
+                  <div className="line-trash">
+                    {lineItems.length > 1 ? (
+                      <IconButton
+                        icon="trash"
+                        label="Remove line"
+                        size="sm"
+                        onClick={() => removeLine(line.clientId)}
+                      />
+                    ) : null}
+                  </div>
                 </div>
-                {lineItems.length > 1 ? (
-                  <Button onClick={() => removeLine(lineItem.clientId)} variant="secondary">
-                    Remove
-                  </Button>
-                ) : null}
-              </div>
-            );
-          })}
+              );
+            })}
+
+            <div style={{ paddingTop: 14 }}>
+              <Button
+                icon="plus"
+                size="sm"
+                variant="secondary"
+                onClick={() => setLineItems((current) => [...current, emptyOrderLine()])}
+              >
+                Add line
+              </Button>
+            </div>
+          </div>
         </div>
 
-        <div className="order-summary">
-          <span>Indicative total</span>
-          <strong className="t-num">{formatCurrency(indicativeTotal)}</strong>
-        </div>
+        <div className="stack">
+          {blockPlacement ? (
+            <Alert tone="danger" title={`${overStockLines.length} line exceeds stock`}>
+              Reduce the flagged quantities or restock before placing the order.
+            </Alert>
+          ) : null}
+          {error ? <Alert tone="danger">{formatOrderError(error, productMap)}</Alert> : null}
+          {validationError ? <Alert tone="warning">{validationError}</Alert> : null}
 
-        {validationError ? <Alert tone="warning">{validationError}</Alert> : null}
-        {error ? <Alert tone="danger">{formatOrderError(error, productMap)}</Alert> : null}
-
-        <div className="form-actions">
-          <Button isLoading={isSaving} type="submit">
-            Place order
-          </Button>
-          <Button onClick={onCancel} type="button" variant="secondary">
-            Cancel
-          </Button>
+          <Card pad>
+            <div className="t-micro muted" style={{ marginBottom: 14 }}>
+              Summary
+            </div>
+            <div className="summary-row">
+              <span>Subtotal (estimate)</span>
+              <span className="v">{formatCurrency(subtotal)}</span>
+            </div>
+            <div className="summary-row total">
+              <span>Total</span>
+              <span className="v">{formatCurrency(subtotal)}</span>
+            </div>
+            <Button
+              block
+              icon="check"
+              isLoading={isSaving}
+              disabled={blockPlacement}
+              type="submit"
+              style={{ marginTop: 16 }}
+            >
+              Place order
+            </Button>
+            <Button
+              block
+              variant="secondary"
+              onClick={onCancel}
+              type="button"
+              style={{ marginTop: 10 }}
+            >
+              Cancel
+            </Button>
+            <p className="t-caption muted" style={{ textAlign: "center", marginTop: 10 }}>
+              The server computes the authoritative total and snapshots unit prices.
+            </p>
+          </Card>
         </div>
       </form>
-    </Panel>
+    </Card>
   );
 }
 
@@ -349,43 +475,45 @@ export function OrderDetailPage() {
   const { orderId } = useParams();
   const orderQuery = useOrder(orderId);
   const order = orderQuery.data;
+  const customerQuery = useCustomer(order?.customer_id);
+  const customer = customerQuery.data;
+
   const columns = [
-    { header: "Product", key: "product_name" },
     {
-      header: "SKU",
-      key: "product_sku",
-      render: (lineItem) => <span className="t-num">{lineItem.product_sku}</span>,
+      header: "Product",
+      key: "product_name",
+      render: (line) => <ProductCell name={line.product_name} sku={line.product_sku} />,
     },
     {
-      header: "Quantity",
+      header: "Qty",
       key: "quantity_ordered",
-      render: (lineItem) => <span className="t-num">{lineItem.quantity_ordered}</span>,
+      align: "right",
+      cellClassName: "num",
+      render: (line) => line.quantity_ordered.toLocaleString("en-IN"),
     },
     {
-      header: "Unit price snapshot",
+      header: "Unit price",
       key: "unit_price",
-      render: (lineItem) => <span className="t-num">{formatCurrency(lineItem.unit_price)}</span>,
+      align: "right",
+      cellClassName: "num",
+      render: (line) => formatCurrency(line.unit_price),
     },
     {
       header: "Line total",
       key: "line_total",
-      render: (lineItem) => <span className="t-num">{formatCurrency(lineItem.line_total)}</span>,
+      align: "right",
+      cellClassName: "num cell-strong",
+      render: (line) => formatCurrency(line.line_total),
     },
   ];
 
   return (
-    <section className="page-stack" aria-labelledby="order-detail-heading">
+    <div className="page">
       <PageHeader
-        actions={
-          <Link className="button button-secondary" to="/app/orders">
-            Back to orders
-          </Link>
-        }
-        eyebrow="Order detail"
+        backTo="/app/orders"
+        backLabel="Orders"
         title={order ? `Order #${order.id.slice(0, 8)}` : "Order detail"}
-      >
-        Server-computed total and line-item price snapshots.
-      </PageHeader>
+      />
 
       {orderQuery.isPending ? <LoadingState label="Loading order..." /> : null}
       {orderQuery.isError ? (
@@ -393,34 +521,82 @@ export function OrderDetailPage() {
           {orderQuery.error.message || "Unable to load order."}
         </Alert>
       ) : null}
+
       {order ? (
         <>
-          <div className="metric-grid order-detail-metrics">
-            <article className="metric-card">
-              <div>
-                <span>Status</span>
-                <strong>{order.status}</strong>
-              </div>
-            </article>
-            <article className="metric-card">
-              <div>
-                <span>Total amount</span>
-                <strong className="t-num">{formatCurrency(order.total_amount)}</strong>
-              </div>
-            </article>
-            <article className="metric-card">
-              <div>
-                <span>Customer ID</span>
-                <strong className="t-num">{order.customer_id.slice(0, 8)}</strong>
-              </div>
-            </article>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+            <Pill tone={statusTone(order.status)}>
+              {order.status === "active" ? "Active" : "Cancelled"}
+            </Pill>
+            <span className="t-caption muted">
+              {formatDateTime(order.created_at)} · captured prices shown
+            </span>
           </div>
-          <Panel description={`Created ${formatDate(order.created_at)}.`} title="Line items">
-            <DataTable columns={columns} rows={order.line_items} />
-          </Panel>
+
+          <div className="two-col wide-left">
+            <Card title="Line items">
+              <DataTable columns={columns} rows={order.line_items} />
+              <div className="card-foot" style={{ justifyContent: "flex-end" }}>
+                <div style={{ width: 260, maxWidth: "100%" }}>
+                  <div className="summary-row total" style={{ borderTop: "none", marginTop: 0 }}>
+                    <span>Total</span>
+                    <span className="v">{formatCurrency(order.total_amount)}</span>
+                  </div>
+                </div>
+              </div>
+            </Card>
+
+            <div className="stack">
+              <Card pad>
+                <div className="t-micro muted" style={{ marginBottom: 14 }}>
+                  Customer
+                </div>
+                {customer ? (
+                  <>
+                    <div className="t-body-md" style={{ marginBottom: 6 }}>
+                      {customer.full_name}
+                    </div>
+                    <div className="info-line">
+                      {customer.email}
+                      {customer.phone_number ? (
+                        <>
+                          <br />
+                          {customer.phone_number}
+                        </>
+                      ) : null}
+                    </div>
+                  </>
+                ) : (
+                  <div className="info-line t-num">{order.customer_id}</div>
+                )}
+              </Card>
+
+              <Card pad>
+                <div className="t-micro muted" style={{ marginBottom: 14 }}>
+                  Details
+                </div>
+                <div className="summary-row">
+                  <span>Status</span>
+                  <span className="v" style={{ fontFamily: "var(--font-sans)" }}>
+                    {order.status === "active" ? "Active" : "Cancelled"}
+                  </span>
+                </div>
+                <div className="summary-row">
+                  <span>Line items</span>
+                  <span className="v">{order.line_items.length}</span>
+                </div>
+                <div className="summary-row">
+                  <span>Placed</span>
+                  <span className="v" style={{ fontFamily: "var(--font-sans)", fontSize: 13 }}>
+                    {formatDateTime(order.created_at)}
+                  </span>
+                </div>
+              </Card>
+            </div>
+          </div>
         </>
       ) : null}
-    </section>
+    </div>
   );
 }
 
@@ -431,14 +607,10 @@ function validateOrderPayload(payload) {
   if (!payload.line_items.length) {
     return "Add at least one line item.";
   }
-  if (payload.line_items.some((lineItem) => !lineItem.product_id)) {
+  if (payload.line_items.some((line) => !line.product_id)) {
     return "Every line item needs a product.";
   }
-  if (
-    payload.line_items.some(
-      (lineItem) => !Number.isInteger(lineItem.quantity) || lineItem.quantity <= 0,
-    )
-  ) {
+  if (payload.line_items.some((line) => !Number.isInteger(line.quantity) || line.quantity <= 0)) {
     return "Every quantity must be a positive whole number.";
   }
   return "";
@@ -461,23 +633,4 @@ function formatOrderError(error, productMap) {
       return `${label}: requested ${shortfall.requested}, available ${shortfall.available}.`;
     })
     .join(" ");
-}
-
-function formatCurrency(value) {
-  const numericValue = Number(value);
-  if (Number.isNaN(numericValue)) {
-    return value;
-  }
-
-  return new Intl.NumberFormat("en-US", {
-    currency: "USD",
-    style: "currency",
-  }).format(numericValue);
-}
-
-function formatDate(value) {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
 }
