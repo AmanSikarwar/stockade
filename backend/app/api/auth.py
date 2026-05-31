@@ -30,6 +30,16 @@ def login(
     return issue_access_token(user=user, settings=settings)
 
 
+@router.post("/refresh", response_model=TokenResponse, summary="Refresh access token")
+def refresh_token(
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> TokenResponse:
+    # Requires a still-valid token; issues a fresh one so an active session
+    # slides forward instead of hard-expiring mid-task.
+    return issue_access_token(user=current_user.user, settings=settings)
+
+
 @router.get("/me", response_model=UserResponse, summary="Get current user")
 def read_current_user(
     current_user: Annotated[CurrentUser, Depends(get_current_user)],

@@ -12,6 +12,10 @@ import {
 
 const AuthContext = createContext(null);
 
+// Renew the access token this long before it expires so an active session
+// slides forward instead of being dropped mid-task.
+const REFRESH_LEAD_MS = 60_000;
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(() => loadSession());
 
@@ -19,6 +23,29 @@ export function AuthProvider({ children }) {
     clearSession();
     queryClient.clear();
     setSession(null);
+  }, []);
+
+  const renew = useCallback(async (currentSession) => {
+    try {
+      const tokenResponse = await apiRequest("/auth/refresh", {
+        method: "POST",
+        token: currentSession.token,
+      });
+      const token = tokenResponse.access_token;
+      const nextSession = {
+        ...currentSession,
+        expiresAt: getTokenExpiry(token, tokenResponse.expires_in),
+        token,
+        tokenType: tokenResponse.token_type,
+      };
+      saveSession(nextSession);
+      setSession(nextSession);
+    } catch {
+      // Refresh failed (revoked/expired) — drop the session.
+      clearSession();
+      queryClient.clear();
+      setSession(null);
+    }
   }, []);
 
   useEffect(() => {
@@ -31,9 +58,12 @@ export function AuthProvider({ children }) {
       return undefined;
     }
 
-    const timeoutId = window.setTimeout(logout, session.expiresAt - Date.now());
+    // Schedule a refresh shortly before expiry; renew updates the session,
+    // which re-runs this effect and schedules the next refresh.
+    const delay = Math.max(0, session.expiresAt - Date.now() - REFRESH_LEAD_MS);
+    const timeoutId = window.setTimeout(() => renew(session), delay);
     return () => window.clearTimeout(timeoutId);
-  }, [logout, session]);
+  }, [logout, renew, session]);
 
   const login = useCallback(
     async ({ email, password }) => {
