@@ -3,6 +3,8 @@
 Use this file as the final handoff checklist after Docker Hub, backend hosting,
 and frontend hosting are complete.
 
+See `docs/phase-status.md` for the phase-by-phase implementation evidence map.
+
 ## Public Artifacts
 
 | Artifact                 | URL | Verification                                       |

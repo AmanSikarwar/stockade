@@ -227,37 +227,37 @@ Authorization: Bearer <access_token>
 
 Endpoints:
 
-| Method   | Path                             | Notes                                                                              |
-| -------- | -------------------------------- | ---------------------------------------------------------------------------------- |
-| `GET`    | `/health`                        | Liveness.                                                                          |
-| `GET`    | `/ready`                         | Readiness.                                                                         |
-| `POST`   | `/auth/login`                    | Body: `email`, `password`.                                                         |
-| `POST`   | `/auth/refresh`                  | Issue a fresh token for a still-valid session (sliding expiry).                    |
-| `POST`   | `/products`                      | Create product (optional `category_id`, `reorder_point`).                         |
+| Method   | Path                             | Notes                                                                                    |
+| -------- | -------------------------------- | ---------------------------------------------------------------------------------------- |
+| `GET`    | `/health`                        | Liveness.                                                                                |
+| `GET`    | `/ready`                         | Readiness.                                                                               |
+| `POST`   | `/auth/login`                    | Body: `email`, `password`.                                                               |
+| `POST`   | `/auth/refresh`                  | Issue a fresh token for a still-valid session (sliding expiry).                          |
+| `POST`   | `/products`                      | Create product (optional `category_id`, `reorder_point`).                                |
 | `GET`    | `/products`                      | Query: `limit`, `offset`, `q`, `include_inactive`, `category_id`, `sort_by`, `sort_dir`. |
-| `GET`    | `/products/{id}`                 | Get product.                                                                       |
-| `PUT`    | `/products/{id}`                 | Partial product update (incl. `category_id`, `reorder_point`).                    |
-| `DELETE` | `/products/{id}`                 | Hard delete or soft delete.                                                        |
-| `POST`   | `/products/{id}/adjust-stock`    | Manual signed stock adjustment. Body: `delta`, `reason`, optional `note`.          |
-| `GET`    | `/products/{id}/stock-movements` | Paginated stock-movement audit trail (newest first).                               |
-| `POST`   | `/categories`                    | Create category.                                                                   |
-| `GET`    | `/categories`                    | Query: `limit`, `offset`, `q`; includes `product_count`.                           |
-| `GET`    | `/categories/{id}`               | Get category.                                                                      |
-| `PUT`    | `/categories/{id}`               | Rename category.                                                                   |
-| `DELETE` | `/categories/{id}`               | Delete; products become uncategorized.                                             |
-| `POST`   | `/customers`                     | Create customer.                                                                   |
-| `GET`    | `/customers`                     | Query: `limit`, `offset`, `q`, `sort_by`, `sort_dir`.                              |
-| `GET`    | `/customers/{id}`                | Get customer.                                                                      |
-| `PUT`    | `/customers/{id}`                | Partial customer update.                                                           |
-| `DELETE` | `/customers/{id}`                | Delete if no order conflict.                                                       |
-| `POST`   | `/orders`                        | Create multi-line order.                                                           |
-| `GET`    | `/orders`                        | Query: `limit`, `offset`, `status`, `customer_id`, `sort_by`, `sort_dir`.          |
-| `GET`    | `/orders/{id}`                   | Get order with line items.                                                         |
-| `DELETE` | `/orders/{id}`                   | Cancel order and restore stock.                                                    |
-| `GET`    | `/dashboard`                     | Summary and low-stock metrics.                                                     |
-| `GET`    | `/reports/revenue-over-time`     | Daily revenue/order counts. Query: `days` (1–365).                                 |
-| `GET`    | `/reports/top-products`          | Best sellers by revenue. Query: `limit`.                                           |
-| `GET`    | `/reports/sales-by-customer`     | Revenue/order counts per customer. Query: `limit`.                                 |
+| `GET`    | `/products/{id}`                 | Get product.                                                                             |
+| `PUT`    | `/products/{id}`                 | Partial product update (incl. `category_id`, `reorder_point`).                           |
+| `DELETE` | `/products/{id}`                 | Hard delete or soft delete.                                                              |
+| `POST`   | `/products/{id}/adjust-stock`    | Manual signed stock adjustment. Body: `delta`, `reason`, optional `note`.                |
+| `GET`    | `/products/{id}/stock-movements` | Paginated stock-movement audit trail (newest first).                                     |
+| `POST`   | `/categories`                    | Create category.                                                                         |
+| `GET`    | `/categories`                    | Query: `limit`, `offset`, `q`; includes `product_count`.                                 |
+| `GET`    | `/categories/{id}`               | Get category.                                                                            |
+| `PUT`    | `/categories/{id}`               | Rename category.                                                                         |
+| `DELETE` | `/categories/{id}`               | Delete; products become uncategorized.                                                   |
+| `POST`   | `/customers`                     | Create customer.                                                                         |
+| `GET`    | `/customers`                     | Query: `limit`, `offset`, `q`, `sort_by`, `sort_dir`.                                    |
+| `GET`    | `/customers/{id}`                | Get customer.                                                                            |
+| `PUT`    | `/customers/{id}`                | Partial customer update.                                                                 |
+| `DELETE` | `/customers/{id}`                | Delete if no order conflict.                                                             |
+| `POST`   | `/orders`                        | Create multi-line order.                                                                 |
+| `GET`    | `/orders`                        | Query: `limit`, `offset`, `status`, `customer_id`, `sort_by`, `sort_dir`.                |
+| `GET`    | `/orders/{id}`                   | Get order with line items.                                                               |
+| `DELETE` | `/orders/{id}`                   | Cancel order and restore stock.                                                          |
+| `GET`    | `/dashboard`                     | Summary and low-stock metrics.                                                           |
+| `GET`    | `/reports/revenue-over-time`     | Daily revenue/order counts. Query: `days` (1–365).                                       |
+| `GET`    | `/reports/top-products`          | Best sellers by revenue. Query: `limit`.                                                 |
+| `GET`    | `/reports/sales-by-customer`     | Revenue/order counts per customer. Query: `limit`.                                       |
 
 Example login:
 
@@ -511,7 +511,8 @@ deployment.
 ## Submission Checklist
 
 Fill this in after phases 19-21 are completed with real public artifacts. A
-longer handoff checklist is available in `docs/submission.md`.
+phase evidence map is available in `docs/phase-status.md`, and a longer handoff
+checklist is available in `docs/submission.md`.
 
 | Artifact                 | Value                        | Verified |
 | ------------------------ | ---------------------------- | -------- |
