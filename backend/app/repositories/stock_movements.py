@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.stock_movement import StockMovement
 from app.repositories.base import OrganizationScopedRepository
@@ -20,6 +20,7 @@ class StockMovementRepository(OrganizationScopedRepository):
         reason: str,
         note: str | None = None,
         reference_order_id: UUID | None = None,
+        created_by_user_id: UUID | None = None,
     ) -> StockMovement:
         movement = StockMovement(
             organization_id=self.organization_id,
@@ -29,6 +30,7 @@ class StockMovementRepository(OrganizationScopedRepository):
             reason=reason,
             note=note,
             reference_order_id=reference_order_id,
+            created_by_user_id=created_by_user_id,
         )
         self.session.add(movement)
         return movement
@@ -52,6 +54,7 @@ class StockMovementRepository(OrganizationScopedRepository):
                 .order_by(StockMovement.created_at.desc(), StockMovement.id.desc())
                 .limit(limit)
                 .offset(offset)
+                .options(selectinload(StockMovement.created_by))
             ).all()
         )
         return movements, total

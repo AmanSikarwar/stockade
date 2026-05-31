@@ -45,6 +45,9 @@ def test_manual_adjustment_increases_stock_and_records_movement(
     assert movement["reason"] == "restock"
     assert movement["note"] == "Received shipment"
     assert movement["reference_order_id"] is None
+    # Audit trail records the acting user.
+    assert movement["created_by_user_id"] is not None
+    assert movement["created_by_email"].endswith("@example.com")
 
 
 def test_manual_adjustment_decreases_stock(

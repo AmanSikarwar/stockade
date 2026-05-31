@@ -147,6 +147,7 @@ def adjust_stock(
             delta=payload.delta,
             reason=payload.reason,
             note=payload.note,
+            actor_user_id=current_user.user.id,
         )
     except ProductNotFoundError as exc:
         raise product_error(status.HTTP_404_NOT_FOUND, "product_not_found", str(exc)) from exc
@@ -173,7 +174,21 @@ def list_stock_movements(
     except ProductNotFoundError as exc:
         raise product_error(status.HTTP_404_NOT_FOUND, "product_not_found", str(exc)) from exc
     return StockMovementListResponse(
-        items=[StockMovementResponse.model_validate(movement) for movement in movements],
+        items=[
+            StockMovementResponse(
+                id=movement.id,
+                product_id=movement.product_id,
+                delta=movement.delta,
+                resulting_quantity=movement.resulting_quantity,
+                reason=movement.reason,
+                note=movement.note,
+                reference_order_id=movement.reference_order_id,
+                created_by_user_id=movement.created_by_user_id,
+                created_by_email=movement.created_by.email if movement.created_by else None,
+                created_at=movement.created_at,
+            )
+            for movement in movements
+        ],
         total=total,
         limit=limit,
         offset=offset,

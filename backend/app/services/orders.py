@@ -66,7 +66,13 @@ class OrderService:
         self.repository = OrderRepository(session, organization_id)
         self.movements = StockMovementRepository(session, organization_id)
 
-    def create_order(self, *, customer_id: UUID, line_items: Sequence[OrderLineInput]) -> Order:
+    def create_order(
+        self,
+        *,
+        customer_id: UUID,
+        line_items: Sequence[OrderLineInput],
+        actor_user_id: UUID | None = None,
+    ) -> Order:
         quantities_by_product = aggregate_quantities(line_items)
         if not quantities_by_product:
             raise OrderValidationError("At least one order line item is required")
@@ -131,6 +137,7 @@ class OrderService:
                     resulting_quantity=product.quantity_in_stock,
                     reason="order",
                     reference_order_id=order.id,
+                    created_by_user_id=actor_user_id,
                 )
             self.session.commit()
         except OrderError:
@@ -167,7 +174,7 @@ class OrderService:
             raise OrderNotFoundError("Order not found")
         return order
 
-    def cancel_order(self, order_id: UUID) -> None:
+    def cancel_order(self, order_id: UUID, *, actor_user_id: UUID | None = None) -> None:
         try:
             order = self.repository.get_by_id_for_update(order_id)
             if order is None:
@@ -192,6 +199,7 @@ class OrderService:
                     resulting_quantity=product.quantity_in_stock,
                     reason="cancellation",
                     reference_order_id=order.id,
+                    created_by_user_id=actor_user_id,
                 )
 
             order.status = "cancelled"

@@ -618,6 +618,16 @@ function StockDrawer({ product, onClose }) {
       },
     },
     {
+      header: "By",
+      key: "created_by",
+      render: (movement) =>
+        movement.created_by_email ? (
+          <span className="text-2">{movement.created_by_email}</span>
+        ) : (
+          <span className="muted">System</span>
+        ),
+    },
+    {
       header: "Reference",
       key: "reference",
       render: (movement) =>

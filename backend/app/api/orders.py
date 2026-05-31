@@ -43,7 +43,11 @@ def create_order(
         for line_item in payload.line_items
     ]
     try:
-        order = service.create_order(customer_id=payload.customer_id, line_items=line_items)
+        order = service.create_order(
+            customer_id=payload.customer_id,
+            line_items=line_items,
+            actor_user_id=current_user.user.id,
+        )
     except OrderCustomerNotFoundError as exc:
         raise order_error(status.HTTP_404_NOT_FOUND, "customer_not_found", str(exc)) from exc
     except OrderProductNotFoundError as exc:
@@ -135,7 +139,7 @@ def cancel_order(
 ) -> Response:
     service = OrderService(session, current_user.organization_id)
     try:
-        service.cancel_order(order_id)
+        service.cancel_order(order_id, actor_user_id=current_user.user.id)
     except OrderNotFoundError as exc:
         raise order_error(status.HTTP_404_NOT_FOUND, "order_not_found", str(exc)) from exc
     except OrderValidationError as exc:

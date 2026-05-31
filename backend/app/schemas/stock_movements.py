@@ -31,6 +31,8 @@ class StockMovementResponse(BaseModel):
     reason: str
     note: str | None
     reference_order_id: UUID | None
+    created_by_user_id: UUID | None = None
+    created_by_email: str | None = None
     created_at: datetime
 
 

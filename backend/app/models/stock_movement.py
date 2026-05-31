@@ -1,14 +1,18 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID as PostgresUUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.mixins import IdMixin
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 # System reasons are recorded automatically; the rest are valid manual adjustments.
 SYSTEM_REASONS = ("order", "cancellation")
@@ -45,6 +49,11 @@ class StockMovement(IdMixin, Base):
         ForeignKey("orders.id", ondelete="SET NULL"),
         nullable=True,
     )
+    created_by_user_id: Mapped[UUID | None] = mapped_column(
+        PostgresUUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     delta: Mapped[int] = mapped_column(Integer, nullable=False)
     resulting_quantity: Mapped[int] = mapped_column(Integer, nullable=False)
     reason: Mapped[str] = mapped_column(String(32), nullable=False)
@@ -54,3 +63,5 @@ class StockMovement(IdMixin, Base):
         nullable=False,
         server_default=func.now(),
     )
+
+    created_by: Mapped[User | None] = relationship(lazy="raise")

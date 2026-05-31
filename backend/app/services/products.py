@@ -131,6 +131,7 @@ class ProductService:
         delta: int,
         reason: str = "manual",
         note: str | None = None,
+        actor_user_id: UUID | None = None,
     ) -> Product:
         delta = int(delta)
         if delta == 0:
@@ -154,6 +155,7 @@ class ProductService:
                 resulting_quantity=new_quantity,
                 reason=reason,
                 note=(note.strip() or None) if note else None,
+                created_by_user_id=actor_user_id,
             )
             self.session.commit()
         except ProductError:
