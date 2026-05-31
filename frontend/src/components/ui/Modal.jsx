@@ -1,26 +1,11 @@
-import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
 import { Icon } from "../icons/Icon";
 import { Button } from "./Button";
-
-function useOverlayChrome(onClose) {
-  useEffect(() => {
-    function onKey(event) {
-      if (event.key === "Escape") onClose?.();
-    }
-    document.addEventListener("keydown", onKey);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [onClose]);
-}
+import { useOverlay } from "./useOverlay";
 
 export function Modal({ title, children, footer, onClose, width = 460 }) {
-  useOverlayChrome(onClose);
+  const dialogRef = useOverlay(onClose);
 
   return createPortal(
     <div
@@ -30,6 +15,8 @@ export function Modal({ title, children, footer, onClose, width = 460 }) {
       }}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className="modal card"
         role="dialog"
         aria-modal="true"

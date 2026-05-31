@@ -1,21 +1,10 @@
-import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
 import { Icon } from "../icons/Icon";
+import { useOverlay } from "./useOverlay";
 
 export function Drawer({ title, subtitle, children, footer, onClose, width = 480 }) {
-  useEffect(() => {
-    function onKey(event) {
-      if (event.key === "Escape") onClose?.();
-    }
-    document.addEventListener("keydown", onKey);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = previousOverflow;
-    };
-  }, [onClose]);
+  const dialogRef = useOverlay(onClose);
 
   return createPortal(
     <div
@@ -24,7 +13,15 @@ export function Drawer({ title, subtitle, children, footer, onClose, width = 480
         if (event.target === event.currentTarget) onClose?.();
       }}
     >
-      <div className="drawer" role="dialog" aria-modal="true" aria-label={title} style={{ width }}>
+      <div
+        ref={dialogRef}
+        tabIndex={-1}
+        className="drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        style={{ width }}
+      >
         <div className="drawer-head">
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="t-h3">{title}</div>
