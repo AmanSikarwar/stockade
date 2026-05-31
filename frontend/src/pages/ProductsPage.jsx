@@ -1,9 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
 
 import { useCategories } from "../api/categories";
 import { useDashboardMetrics } from "../api/dashboard";
-import { useCreateProduct, useDeleteProduct, useProducts, useUpdateProduct } from "../api/products";
+import {
+  useAdjustStock,
+  useCreateProduct,
+  useDeleteProduct,
+  useProducts,
+  useStockMovements,
+  useUpdateProduct,
+} from "../api/products";
 import { useNotifications } from "../components/feedback/NotificationContext";
 import { EmptyProducts } from "../components/illustrations/Illustrations";
 import { Alert } from "../components/ui/Alert";
@@ -19,7 +26,7 @@ import { Pill, StockPill } from "../components/ui/Pill";
 import { Pagination } from "../components/ui/Pagination";
 import { SearchField } from "../components/ui/SearchField";
 import { Select } from "../components/ui/Select";
-import { formatCurrency } from "../lib/format";
+import { formatCurrency, formatDateTime } from "../lib/format";
 
 const PAGE_SIZE = 10;
 
@@ -42,6 +49,7 @@ export default function ProductsPage() {
     q: queryParam,
   });
   const [formProduct, setFormProduct] = useState(null);
+  const [stockProduct, setStockProduct] = useState(null);
 
   // Honor the global topbar search (which navigates here with ?q=).
   useEffect(() => {
@@ -138,6 +146,13 @@ export default function ProductsPage() {
         return (
           <div className="row-actions">
             <IconButton
+              icon="layers"
+              label={`Adjust stock for ${product.name}`}
+              variant="secondary"
+              size="sm"
+              onClick={() => openStock(product)}
+            />
+            <IconButton
               icon="edit"
               label={`Edit ${product.name}`}
               variant="secondary"
@@ -161,7 +176,14 @@ export default function ProductsPage() {
     createProduct.reset();
     updateProduct.reset();
     setConfirmingDeleteId(null);
+    setStockProduct(null);
     setFormProduct(product);
+  }
+
+  function openStock(product) {
+    setConfirmingDeleteId(null);
+    setFormProduct(null);
+    setStockProduct(product);
   }
 
   function updateSearch(value) {
@@ -231,6 +253,14 @@ export default function ProductsPage() {
           onCancel={() => setFormProduct(null)}
           onSubmit={handleSubmit}
           product={formProduct}
+        />
+      ) : null}
+
+      {stockProduct ? (
+        <StockPanel
+          key={stockProduct.id}
+          product={stockProduct}
+          onClose={() => setStockProduct(null)}
         />
       ) : null}
 
@@ -450,6 +480,223 @@ function ProductFormCard({ categories, error, isSaving, onCancel, onSubmit, prod
           </Button>
         </div>
       </form>
+    </Card>
+  );
+}
+
+const MOVEMENT_REASONS = {
+  order: { tone: "info", label: "Order" },
+  cancellation: { tone: "neutral", label: "Cancellation" },
+  manual: { tone: "neutral", label: "Manual" },
+  correction: { tone: "warning", label: "Correction" },
+  restock: { tone: "success", label: "Restock" },
+  damage: { tone: "danger", label: "Damage" },
+};
+
+const ADJUST_REASONS = [
+  { value: "restock", label: "Restock" },
+  { value: "damage", label: "Damage / loss" },
+  { value: "correction", label: "Correction" },
+  { value: "manual", label: "Manual" },
+];
+
+function StockPanel({ product, onClose }) {
+  const { notify } = useNotifications();
+  const adjustStock = useAdjustStock();
+  const movementsQuery = useStockMovements(product.id, { limit: 20, offset: 0 });
+  const [current, setCurrent] = useState(product.quantity_in_stock);
+  const [quantity, setQuantity] = useState("1");
+  const [direction, setDirection] = useState("add");
+  const [reason, setReason] = useState("restock");
+  const [note, setNote] = useState("");
+  const [validationError, setValidationError] = useState("");
+
+  const movements = movementsQuery.data?.items ?? [];
+  const total = movementsQuery.data?.total ?? 0;
+
+  async function handleSubmit(event) {
+    event.preventDefault();
+    setValidationError("");
+
+    const amount = Number(quantity);
+    if (!Number.isInteger(amount) || amount <= 0) {
+      setValidationError("Enter a positive whole quantity.");
+      return;
+    }
+    const delta = direction === "remove" ? -amount : amount;
+    if (current + delta < 0) {
+      setValidationError(`Cannot remove ${amount}; only ${current} in stock.`);
+      return;
+    }
+
+    try {
+      const updated = await adjustStock.mutateAsync({
+        productId: product.id,
+        payload: { delta, reason, note: note.trim() || null },
+      });
+      setCurrent(updated.quantity_in_stock);
+      setQuantity("1");
+      setNote("");
+      notify({
+        message: `${product.name} is now at ${updated.quantity_in_stock} in stock.`,
+        tone: "success",
+        title: "Stock adjusted",
+      });
+    } catch {
+      // adjustStock.error renders through the alert below.
+    }
+  }
+
+  const columns = [
+    {
+      header: "When",
+      key: "created_at",
+      render: (movement) => <span className="text-2">{formatDateTime(movement.created_at)}</span>,
+    },
+    {
+      header: "Change",
+      key: "delta",
+      align: "right",
+      cellClassName: "num cell-strong",
+      render: (movement) => (
+        <span
+          style={{
+            color: movement.delta >= 0 ? "var(--success-fg)" : "var(--danger-fg)",
+          }}
+        >
+          {movement.delta >= 0 ? `+${movement.delta}` : movement.delta}
+        </span>
+      ),
+    },
+    {
+      header: "On hand",
+      key: "resulting_quantity",
+      align: "right",
+      cellClassName: "num",
+      render: (movement) => movement.resulting_quantity,
+    },
+    {
+      header: "Reason",
+      key: "reason",
+      render: (movement) => {
+        const meta = MOVEMENT_REASONS[movement.reason] ?? {
+          tone: "neutral",
+          label: movement.reason,
+        };
+        return (
+          <Pill tone={meta.tone} dot={false}>
+            {meta.label}
+          </Pill>
+        );
+      },
+    },
+    {
+      header: "Reference",
+      key: "reference",
+      render: (movement) =>
+        movement.reference_order_id ? (
+          <Link className="table-link t-num" to={`/app/orders/${movement.reference_order_id}`}>
+            #{movement.reference_order_id.slice(0, 8)}
+          </Link>
+        ) : movement.note ? (
+          <span className="text-2">{movement.note}</span>
+        ) : (
+          <span className="muted">—</span>
+        ),
+    },
+  ];
+
+  return (
+    <Card title={`Adjust stock · ${product.name}`} pad>
+      <div className="stack">
+        <div className="stat-inline">
+          <div className="stat">
+            <span className="k">SKU</span>
+            <strong className="v t-num" style={{ fontSize: 18 }}>
+              {product.sku}
+            </strong>
+          </div>
+          <div className="stat">
+            <span className="k">On hand</span>
+            <strong className="v t-num">{current}</strong>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="stack">
+          <div className="form-grid">
+            <FormField id="adjust-direction" label="Direction">
+              <Select
+                id="adjust-direction"
+                value={direction}
+                onChange={(event) => setDirection(event.target.value)}
+              >
+                <option value="add">Add stock (+)</option>
+                <option value="remove">Remove stock (−)</option>
+              </Select>
+            </FormField>
+            <FormField
+              id="adjust-quantity"
+              inputMode="numeric"
+              label="Quantity"
+              min="1"
+              onChange={(event) => setQuantity(event.target.value)}
+              required
+              step="1"
+              type="number"
+              value={quantity}
+            />
+            <FormField id="adjust-reason" label="Reason">
+              <Select
+                id="adjust-reason"
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+              >
+                {ADJUST_REASONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </Select>
+            </FormField>
+            <FormField
+              id="adjust-note"
+              label="Note"
+              hint="Optional"
+              maxLength="255"
+              onChange={(event) => setNote(event.target.value)}
+              placeholder="e.g. Received PO #1234"
+              value={note}
+            />
+          </div>
+
+          {validationError ? <Alert tone="warning">{validationError}</Alert> : null}
+          {adjustStock.error ? <Alert tone="danger">{adjustStock.error.message}</Alert> : null}
+
+          <div className="form-actions">
+            <Button icon="check" isLoading={adjustStock.isPending} type="submit">
+              Apply adjustment
+            </Button>
+            <Button onClick={onClose} type="button" variant="secondary">
+              Close
+            </Button>
+          </div>
+        </form>
+
+        <div>
+          <div className="t-micro muted" style={{ marginBottom: 10 }}>
+            Movement history{total ? ` · ${total}` : ""}
+          </div>
+          {movementsQuery.isPending ? (
+            <LoadingState label="Loading movements..." />
+          ) : (
+            <DataTable
+              columns={columns}
+              rows={movements}
+              emptyMessage="No stock movements recorded yet."
+            />
+          )}
+        </div>
+      </div>
     </Card>
   );
 }

@@ -8,6 +8,7 @@ export const productKeys = {
   detail: (productId) => [...productKeys.all, "detail", productId],
   lists: () => [...productKeys.all, "list"],
   list: (params = {}) => [...productKeys.lists(), params],
+  movements: (productId, params = {}) => [...productKeys.detail(productId), "movements", params],
 };
 
 export const customerKeys = {
