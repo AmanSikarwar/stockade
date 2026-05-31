@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router";
+import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 
 import { ApiError } from "../api/client";
 import { useCustomer, useCustomers } from "../api/customers";
@@ -43,6 +43,17 @@ export default function OrdersPage() {
   const [confirmingCancelId, setConfirmingCancelId] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [offset, setOffset] = useState(0);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  // Open the builder when arriving from the topbar "New order" action.
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      setIsFormOpen(true);
+      const next = new URLSearchParams(searchParams);
+      next.delete("new");
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
 
   const ordersQuery = useOrders({
     limit: PAGE_SIZE,

@@ -1,29 +1,43 @@
 import { useEffect, useState } from "react";
-import { NavLink, Outlet, useLocation } from "react-router";
+import { NavLink, Outlet, useLocation, useNavigate } from "react-router";
 
+import { useDashboardMetrics } from "../../api/dashboard";
 import { useAuth } from "../../auth/AuthContext";
 import { Logo } from "../brand/Logo";
 import { Icon } from "../icons/Icon";
 import { Avatar } from "../ui/Avatar";
+import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { ThemeToggle } from "../ui/ThemeToggle";
 
 const navItems = [
   { icon: "dashboard", label: "Dashboard", to: "/app" },
   { icon: "box", label: "Products", to: "/app/products" },
-  { icon: "orders", label: "Orders", to: "/app/orders" },
+  { icon: "orders", label: "Orders", to: "/app/orders", badgeKey: "orders" },
   { icon: "customers", label: "Customers", to: "/app/customers" },
 ];
 
 export function AppShell() {
   const { logout, user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [navOpen, setNavOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const metricsQuery = useDashboardMetrics();
+  const activeOrders = metricsQuery.data?.total_active_orders ?? 0;
+  const badges = { orders: activeOrders > 0 ? activeOrders : null };
 
   // Close the mobile drawer whenever the route changes.
   useEffect(() => {
     setNavOpen(false);
   }, [location.pathname]);
+
+  function submitSearch(event) {
+    event.preventDefault();
+    const term = search.trim();
+    navigate(term ? `/app/products?q=${encodeURIComponent(term)}` : "/app/products");
+  }
 
   return (
     <div className="shell">
@@ -54,6 +68,9 @@ export function AppShell() {
               >
                 <Icon name={item.icon} size={19} stroke={1.85} />
                 <span>{item.label}</span>
+                {item.badgeKey && badges[item.badgeKey] != null ? (
+                  <span className="badge">{badges[item.badgeKey]}</span>
+                ) : null}
               </NavLink>
             ))}
           </nav>
@@ -80,9 +97,24 @@ export function AppShell() {
             variant="ghost"
             onClick={() => setNavOpen(true)}
           />
-          <span className="topbar-title">Operations workspace</span>
+          <form className="input-affix topbar-search" role="search" onSubmit={submitSearch}>
+            <span className="affix-icon">
+              <Icon name="search" size={17} />
+            </span>
+            <input
+              className="input"
+              type="search"
+              aria-label="Search products"
+              placeholder="Search products, orders, customers…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </form>
           <span className="spacer" />
           <ThemeToggle />
+          <Button icon="plus" onClick={() => navigate("/app/orders?new=1")}>
+            New order
+          </Button>
         </header>
 
         <main className="content">

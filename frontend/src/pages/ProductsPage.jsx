@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 
 import { useDashboardMetrics } from "../api/dashboard";
 import { useCreateProduct, useDeleteProduct, useProducts, useUpdateProduct } from "../api/products";
@@ -29,14 +30,23 @@ const emptyProductForm = {
 
 export default function ProductsPage() {
   const { notify } = useNotifications();
+  const [searchParams] = useSearchParams();
+  const queryParam = searchParams.get("q") ?? "";
   const [confirmingDeleteId, setConfirmingDeleteId] = useState(null);
   const [filters, setFilters] = useState({
     include_inactive: false,
     limit: PAGE_SIZE,
     offset: 0,
-    q: "",
+    q: queryParam,
   });
   const [formProduct, setFormProduct] = useState(null);
+
+  // Honor the global topbar search (which navigates here with ?q=).
+  useEffect(() => {
+    setFilters((current) =>
+      current.q === queryParam ? current : { ...current, offset: 0, q: queryParam },
+    );
+  }, [queryParam]);
   const productsQuery = useProducts(filters);
   const dashboardQuery = useDashboardMetrics({ low_stock_limit: 1 });
   const createProduct = useCreateProduct();

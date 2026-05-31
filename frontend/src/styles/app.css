@@ -966,6 +966,18 @@ svg {
   outline: none;
   box-shadow: 0 0 0 3px var(--ring);
 }
+.nav-item .badge {
+  margin-left: auto;
+  font: 600 11px var(--font-mono);
+  background: var(--surface-sunken);
+  color: var(--text-2);
+  padding: 1px 8px;
+  border-radius: var(--r-pill);
+}
+.nav-item.on .badge {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
 .nav-footer {
   margin-top: auto;
   padding: 8px 12px 14px;
@@ -1119,13 +1131,29 @@ svg {
 }
 .metric-card {
   display: flex;
-  align-items: flex-start;
-  gap: 14px;
+  flex-direction: column;
   padding: 18px;
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   background: var(--surface);
   box-shadow: var(--e-1);
+}
+.metric-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.metric-delta {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  font: 600 11.5px var(--font-sans);
+  background: var(--success-bg);
+  color: var(--success-fg);
+  border: 1px solid var(--success-line);
 }
 .metric-icon {
   display: inline-flex;
@@ -1139,24 +1167,15 @@ svg {
   background: var(--accent-soft);
   flex: none;
 }
-.metric-card .label {
-  font: 500 13px var(--font-sans);
-  color: var(--text-3);
-}
 .metric-card .value {
-  display: block;
-  margin-top: 3px;
-  font: 600 28px/1 var(--font-sans);
-  letter-spacing: -0.6px;
+  font: 600 30px/1 var(--font-sans);
+  letter-spacing: -0.8px;
   color: var(--text);
 }
-.metric-card .meta {
-  margin-top: 6px;
-  font: 500 12px var(--font-sans);
-  color: var(--text-2);
-}
-.metric-card .meta.up {
-  color: var(--success-fg);
+.metric-card .label {
+  margin-top: 7px;
+  font: 500 14px var(--font-sans);
+  color: var(--text-3);
 }
 
 /* recent-orders list card */
@@ -1539,6 +1558,9 @@ svg {
   }
   .menu-button {
     display: inline-flex;
+  }
+  .topbar-search {
+    display: none;
   }
   .content {
     padding: 20px 16px;

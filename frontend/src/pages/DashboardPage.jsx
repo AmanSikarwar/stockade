@@ -14,7 +14,7 @@ import { Icon } from "../components/icons/Icon";
 import { LoadingState } from "../components/ui/LoadingState";
 import { MetricCard } from "../components/ui/MetricCard";
 import { PageHeader } from "../components/ui/PageHeader";
-import { Pill, StockPill } from "../components/ui/Pill";
+import { Pill } from "../components/ui/Pill";
 import { formatCurrency } from "../lib/format";
 
 const today = new Intl.DateTimeFormat("en-IN", {
@@ -48,12 +48,33 @@ export default function DashboardPage() {
       key: "quantity_in_stock",
       align: "right",
       cellClassName: "num",
-      render: (product) => product.quantity_in_stock,
+      render: (product) => (
+        <span
+          style={{
+            fontWeight: 600,
+            color: product.quantity_in_stock <= 0 ? "var(--danger-fg)" : "var(--warning-fg)",
+          }}
+        >
+          {product.quantity_in_stock}
+        </span>
+      ),
+    },
+    {
+      header: "Reorder at",
+      key: "threshold",
+      align: "right",
+      cellClassName: "num",
+      render: () => <span className="muted">{threshold}</span>,
     },
     {
       header: "Status",
       key: "status",
-      render: (product) => <StockPill quantity={product.quantity_in_stock} threshold={threshold} />,
+      render: (product) =>
+        product.quantity_in_stock <= 0 ? (
+          <Pill tone="danger">Out of stock</Pill>
+        ) : (
+          <Pill tone="warning">Low stock</Pill>
+        ),
     },
   ];
 
@@ -64,12 +85,12 @@ export default function DashboardPage() {
         subtitle={today}
         actions={
           <Button
-            icon="refresh"
-            isLoading={metricsQuery.isFetching}
-            onClick={() => metricsQuery.refetch()}
+            icon="download"
             variant="secondary"
+            disabled={dashboard.low_stock_products.length === 0}
+            onClick={() => exportLowStock(dashboard.low_stock_products, threshold)}
           >
-            Refresh
+            Export
           </Button>
         }
       />
@@ -81,24 +102,13 @@ export default function DashboardPage() {
       ) : null}
 
       <div className="metric-grid">
-        <MetricCard
-          icon="box"
-          label="Total products"
-          value={dashboard.total_products}
-          meta={`${dashboard.total_active_products} active`}
-        />
+        <MetricCard icon="box" label="Total products" value={dashboard.total_products} />
         <MetricCard icon="customers" label="Customers" value={dashboard.total_customers} />
-        <MetricCard
-          icon="orders"
-          label="Orders"
-          value={dashboard.total_orders}
-          meta={`${dashboard.total_active_orders} active · ${dashboard.total_cancelled_orders} cancelled`}
-        />
+        <MetricCard icon="orders" label="Orders" value={dashboard.total_orders} />
         <MetricCard
           icon="lowStock"
           label="Low-stock products"
           value={dashboard.low_stock_products_count}
-          meta={`Threshold: ${dashboard.low_stock_threshold}`}
         />
       </div>
 
@@ -161,20 +171,41 @@ export default function DashboardPage() {
             ) : (
               <div className="empty-state">
                 <p>No orders yet. Place your first order to see activity here.</p>
-                <Link className="btn btn-primary btn-md" to="/app/orders">
+                <Link className="btn btn-primary btn-md" to="/app/orders?new=1">
                   <Icon name="plus" size={18} />
                   <span>New order</span>
                 </Link>
               </div>
             )}
-            {recentOrders.length ? (
-              <div className="card-foot" style={{ justifyContent: "flex-end" }}>
-                <span className="page-info">Showing latest {recentOrders.length}</span>
-              </div>
-            ) : null}
           </Card>
         </div>
       )}
     </div>
   );
+}
+
+function csvCell(value) {
+  const text = String(value ?? "");
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function exportLowStock(products, threshold) {
+  const header = ["Name", "SKU", "On hand", "Reorder at", "Status"];
+  const rows = products.map((product) => [
+    product.name,
+    product.sku,
+    product.quantity_in_stock,
+    threshold,
+    product.quantity_in_stock <= 0 ? "Out of stock" : "Low stock",
+  ]);
+  const csv = [header, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `stockade-low-stock-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
