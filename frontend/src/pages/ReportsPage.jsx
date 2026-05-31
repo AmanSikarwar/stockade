@@ -1,5 +1,6 @@
 import { useState } from "react";
 
+import { useDashboardMetrics } from "../api/dashboard";
 import { useRevenueOverTime, useSalesByCustomer, useTopProducts } from "../api/reports";
 import { Alert } from "../components/ui/Alert";
 import { BarChart } from "../components/ui/BarChart";
@@ -8,6 +9,7 @@ import { DataTable } from "../components/ui/DataTable";
 import { PersonCell, ProductCell } from "../components/ui/EntityCell";
 import { LoadingState } from "../components/ui/LoadingState";
 import { PageHeader } from "../components/ui/PageHeader";
+import { Pill } from "../components/ui/Pill";
 import { Select } from "../components/ui/Select";
 import { formatCurrency, formatDate } from "../lib/format";
 
@@ -22,6 +24,54 @@ export default function ReportsPage() {
   const revenueQuery = useRevenueOverTime({ days });
   const topProductsQuery = useTopProducts({ limit: 10 });
   const salesQuery = useSalesByCustomer({ limit: 10 });
+  const lowStockQuery = useDashboardMetrics({ low_stock_limit: 100 });
+
+  const globalThreshold = lowStockQuery.data?.low_stock_threshold ?? 5;
+  const lowStockCount = lowStockQuery.data?.low_stock_products_count ?? 0;
+  const lowStockRows = lowStockQuery.data?.low_stock_products ?? [];
+
+  const lowStockColumns = [
+    {
+      header: "Product",
+      key: "name",
+      render: (product) => <ProductCell name={product.name} sku={product.sku} />,
+    },
+    {
+      header: "On hand",
+      key: "quantity_in_stock",
+      align: "right",
+      cellClassName: "num",
+      render: (product) => (
+        <span
+          style={{
+            fontWeight: 600,
+            color: product.quantity_in_stock <= 0 ? "var(--danger-fg)" : "var(--warning-fg)",
+          }}
+        >
+          {product.quantity_in_stock}
+        </span>
+      ),
+    },
+    {
+      header: "Reorder at",
+      key: "reorder_point",
+      align: "right",
+      cellClassName: "num",
+      render: (product) => (
+        <span className="muted">{product.reorder_point ?? globalThreshold}</span>
+      ),
+    },
+    {
+      header: "Status",
+      key: "status",
+      render: (product) =>
+        product.quantity_in_stock <= 0 ? (
+          <Pill tone="danger">Out of stock</Pill>
+        ) : (
+          <Pill tone="warning">Low stock</Pill>
+        ),
+    },
+  ];
 
   const revenue = revenueQuery.data;
   const chartData = (revenue?.points ?? []).map((point) => ({
@@ -145,6 +195,24 @@ export default function ReportsPage() {
             </div>
             <BarChart data={chartData} formatValue={formatCurrency} emptyLabel="No revenue yet." />
           </>
+        )}
+      </Card>
+
+      <Card title="Low stock" count={lowStockCount} pad={false}>
+        {lowStockQuery.isPending ? (
+          <LoadingState label="Loading low stock..." />
+        ) : lowStockQuery.isError ? (
+          <div className="card-pad">
+            <Alert tone="danger" title="Low stock unavailable">
+              {lowStockQuery.error.message || "Unable to load low-stock products."}
+            </Alert>
+          </div>
+        ) : (
+          <DataTable
+            columns={lowStockColumns}
+            rows={lowStockRows}
+            emptyMessage="Every product is above its reorder point."
+          />
         )}
       </Card>
 
