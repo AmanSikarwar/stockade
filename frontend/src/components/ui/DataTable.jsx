@@ -65,7 +65,11 @@ export function DataTable({
           {rows.map((row) => (
             <tr key={row.id}>
               {columns.map((column) => {
-                const cellClass = [column.align === "right" ? "t-right" : "", column.cellClassName]
+                const cellClass = [
+                  column.align === "right" ? "t-right" : "",
+                  column.cardFloat ? "card-float" : "",
+                  column.cellClassName,
+                ]
                   .filter(Boolean)
                   .join(" ");
                 return (

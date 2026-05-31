@@ -118,6 +118,7 @@ export default function ProductsPage() {
     {
       header: "Stock",
       key: "stock",
+      cardFloat: true,
       render: (product) => <StockPill quantity={product.quantity_in_stock} threshold={threshold} />,
     },
     {

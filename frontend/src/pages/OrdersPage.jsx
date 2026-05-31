@@ -129,6 +129,7 @@ export default function OrdersPage() {
       header: "Status",
       key: "status",
       sortable: true,
+      cardFloat: true,
       render: (order) => (
         <Pill tone={statusTone(order.status)}>
           {order.status === "active" ? "Active" : "Cancelled"}

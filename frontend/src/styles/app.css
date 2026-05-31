@@ -2021,6 +2021,7 @@ svg {
   }
   .tbl tbody tr {
     display: block;
+    position: relative;
     padding: 2px 6px 6px;
     margin-bottom: 10px;
     border: 1px solid var(--border);
@@ -2063,6 +2064,21 @@ svg {
   }
   .tbl tbody td:first-child::before {
     content: none;
+  }
+  /* a flagged status cell floats to the top-right of the title row */
+  .tbl tbody td.card-float {
+    position: absolute;
+    top: 9px;
+    right: 8px;
+    width: auto;
+    padding: 0;
+    border: none;
+  }
+  .tbl tbody td.card-float::before {
+    content: none;
+  }
+  .tbl tbody tr:has(.card-float) td:first-child {
+    padding-right: 116px;
   }
   /* unlabelled cells (e.g. row actions) align to the right with no label */
   .tbl tbody td[data-label=""]::before {
