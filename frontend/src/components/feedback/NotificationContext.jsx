@@ -1,5 +1,6 @@
-import { createContext, useCallback, useContext, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
+import { setGlobalNotifier } from "../../lib/notifier";
 import { Icon } from "../icons/Icon";
 import { IconButton } from "../ui/IconButton";
 
@@ -28,6 +29,12 @@ export function NotificationProvider({ children }) {
     },
     [dismiss],
   );
+
+  // Let modules outside React (the query client) raise toasts on failures.
+  useEffect(() => {
+    setGlobalNotifier(notify);
+    return () => setGlobalNotifier(null);
+  }, [notify]);
 
   const value = useMemo(() => ({ dismiss, notify }), [dismiss, notify]);
 
