@@ -10,11 +10,21 @@ import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { ThemeToggle } from "../ui/ThemeToggle";
 
-const navItems = [
-  { icon: "dashboard", label: "Dashboard", to: "/app" },
-  { icon: "box", label: "Products", to: "/app/products" },
-  { icon: "orders", label: "Orders", to: "/app/orders", badgeKey: "orders" },
-  { icon: "customers", label: "Customers", to: "/app/customers" },
+const navGroups = [
+  {
+    label: "Workspace",
+    items: [
+      { icon: "dashboard", label: "Dashboard", to: "/app" },
+      { icon: "box", label: "Products", to: "/app/products" },
+      { icon: "tag", label: "Categories", to: "/app/categories" },
+      { icon: "orders", label: "Orders", to: "/app/orders", badgeKey: "orders" },
+      { icon: "customers", label: "Customers", to: "/app/customers" },
+    ],
+  },
+  {
+    label: "Insights",
+    items: [{ icon: "chart", label: "Reports", to: "/app/reports" }],
+  },
 ];
 
 export function AppShell() {
@@ -57,23 +67,25 @@ export function AppShell() {
         </div>
 
         <div className="nav-scroll">
-          <nav className="nav-group">
-            <div className="nav-group-label">Workspace</div>
-            {navItems.map((item) => (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.to === "/app"}
-                className={({ isActive }) => `nav-item ${isActive ? "on" : ""}`.trim()}
-              >
-                <Icon name={item.icon} size={19} stroke={1.85} />
-                <span>{item.label}</span>
-                {item.badgeKey && badges[item.badgeKey] != null ? (
-                  <span className="badge">{badges[item.badgeKey]}</span>
-                ) : null}
-              </NavLink>
-            ))}
-          </nav>
+          {navGroups.map((group) => (
+            <nav className="nav-group" key={group.label}>
+              <div className="nav-group-label">{group.label}</div>
+              {group.items.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === "/app"}
+                  className={({ isActive }) => `nav-item ${isActive ? "on" : ""}`.trim()}
+                >
+                  <Icon name={item.icon} size={19} stroke={1.85} />
+                  <span>{item.label}</span>
+                  {item.badgeKey && badges[item.badgeKey] != null ? (
+                    <span className="badge">{badges[item.badgeKey]}</span>
+                  ) : null}
+                </NavLink>
+              ))}
+            </nav>
+          ))}
 
           <div className="nav-footer">
             <div className="nav-user">

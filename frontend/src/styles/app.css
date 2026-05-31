@@ -1322,6 +1322,80 @@ svg {
   color: var(--accent-text);
 }
 
+/* bar chart (reports) */
+.bar-chart {
+  width: 100%;
+}
+.bar-chart .bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: var(--chart-h, 180px);
+}
+.bar-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+.bar-track {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.bar-fill {
+  width: 100%;
+  min-height: 2px;
+  border-radius: var(--r-sm) var(--r-sm) 0 0;
+  background: linear-gradient(180deg, var(--accent), var(--accent-press));
+  transition: height var(--m-slow) var(--ease);
+}
+.bar-fill.is-zero {
+  background: var(--surface-sunken);
+}
+.bar-col:hover .bar-fill {
+  background: linear-gradient(180deg, var(--accent-hover), var(--accent));
+}
+.bar-x {
+  font: 500 10px var(--font-mono);
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+/* simple stat row used on report summaries */
+.stat-inline {
+  display: flex;
+  gap: 28px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.stat-inline .stat .k {
+  font: 500 12px var(--font-sans);
+  color: var(--text-3);
+}
+.stat-inline .stat .v {
+  display: block;
+  margin-top: 2px;
+  font: 600 24px/1 var(--font-sans);
+  letter-spacing: -0.5px;
+  color: var(--text);
+}
+.rank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font: 600 12px var(--font-mono);
+}
+
 /* customer info block in detail */
 .info-line {
   color: var(--text-2);

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router";
 
+import { useCategories } from "../api/categories";
 import { useDashboardMetrics } from "../api/dashboard";
 import { useCreateProduct, useDeleteProduct, useProducts, useUpdateProduct } from "../api/products";
 import { useNotifications } from "../components/feedback/NotificationContext";
@@ -17,6 +18,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { Pill, StockPill } from "../components/ui/Pill";
 import { Pagination } from "../components/ui/Pagination";
 import { SearchField } from "../components/ui/SearchField";
+import { Select } from "../components/ui/Select";
 import { formatCurrency } from "../lib/format";
 
 const PAGE_SIZE = 10;
@@ -49,10 +51,17 @@ export default function ProductsPage() {
   }, [queryParam]);
   const productsQuery = useProducts(filters);
   const dashboardQuery = useDashboardMetrics({ low_stock_limit: 1 });
+  const categoriesQuery = useCategories({ limit: 100, offset: 0 });
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
   const threshold = dashboardQuery.data?.low_stock_threshold ?? 5;
+
+  const categories = categoriesQuery.data?.items ?? [];
+  const categoryMap = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories],
+  );
 
   const rows = productsQuery.data?.items ?? [];
   const total = productsQuery.data?.total ?? 0;
@@ -76,6 +85,18 @@ export default function ProductsPage() {
       align: "right",
       cellClassName: "num",
       render: (product) => formatCurrency(product.price),
+    },
+    {
+      header: "Category",
+      key: "category_id",
+      render: (product) =>
+        product.category_id && categoryMap.has(product.category_id) ? (
+          <Pill tone="neutral" dot={false}>
+            {categoryMap.get(product.category_id).name}
+          </Pill>
+        ) : (
+          <span className="muted">—</span>
+        ),
     },
     {
       header: "Stock",
@@ -155,6 +176,11 @@ export default function ProductsPage() {
     setFilters((current) => ({ ...current, offset }));
   }
 
+  function changeCategory(event) {
+    const value = event.target.value;
+    setFilters((current) => ({ ...current, category_id: value || undefined, offset: 0 }));
+  }
+
   async function handleSubmit(payload) {
     if (formProduct?.id) {
       const product = await updateProduct.mutateAsync({ payload, productId: formProduct.id });
@@ -199,6 +225,7 @@ export default function ProductsPage() {
 
       {formProduct ? (
         <ProductFormCard
+          categories={categories}
           error={mutationError?.message}
           isSaving={isSaving}
           onCancel={() => setFormProduct(null)}
@@ -218,6 +245,20 @@ export default function ProductsPage() {
               placeholder="Search products…"
               value={filters.q}
             />
+            <div style={{ width: 170 }}>
+              <Select
+                aria-label="Filter by category"
+                value={filters.category_id ?? ""}
+                onChange={changeCategory}
+              >
+                <option value="">All categories</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <label className="ctl">
               <input checked={filters.include_inactive} onChange={toggleInactive} type="checkbox" />
               <span className="ctl-box">
@@ -283,7 +324,7 @@ export default function ProductsPage() {
   );
 }
 
-function ProductFormCard({ error, isSaving, onCancel, onSubmit, product }) {
+function ProductFormCard({ categories, error, isSaving, onCancel, onSubmit, product }) {
   const isEditing = Boolean(product.id);
   const [form, setForm] = useState(() => ({
     name: product.name ?? "",
@@ -291,6 +332,11 @@ function ProductFormCard({ error, isSaving, onCancel, onSubmit, product }) {
     quantity_in_stock:
       product.quantity_in_stock === undefined ? "" : String(product.quantity_in_stock),
     sku: product.sku ?? "",
+    category_id: product.category_id ?? "",
+    reorder_point:
+      product.reorder_point === undefined || product.reorder_point === null
+        ? ""
+        : String(product.reorder_point),
   }));
   const [validationError, setValidationError] = useState("");
 
@@ -364,6 +410,32 @@ function ProductFormCard({ error, isSaving, onCancel, onSubmit, product }) {
             type="number"
             value={form.quantity_in_stock}
           />
+          <FormField id="product-category" label="Category">
+            <Select
+              id="product-category"
+              value={form.category_id}
+              onChange={(event) => updateField("category_id", event.target.value)}
+            >
+              <option value="">No category</option>
+              {(categories ?? []).map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+          <FormField
+            id="product-reorder-point"
+            inputMode="numeric"
+            label="Reorder point"
+            hint="Low-stock alert threshold; blank uses the global default."
+            min="0"
+            onChange={(event) => updateField("reorder_point", event.target.value)}
+            placeholder="Default"
+            step="1"
+            type="number"
+            value={form.reorder_point}
+          />
         </div>
 
         {validationError ? <Alert tone="warning">{validationError}</Alert> : null}
@@ -383,11 +455,14 @@ function ProductFormCard({ error, isSaving, onCancel, onSubmit, product }) {
 }
 
 function normalizeProductPayload(form) {
+  const reorderPoint = form.reorder_point === "" ? null : Number(form.reorder_point);
   return {
     name: form.name.trim(),
     price: form.price,
     quantity_in_stock: Number(form.quantity_in_stock),
     sku: form.sku.trim(),
+    category_id: form.category_id || null,
+    reorder_point: reorderPoint,
   };
 }
 
@@ -403,6 +478,12 @@ function validateProductPayload(payload) {
   }
   if (!Number.isInteger(payload.quantity_in_stock) || payload.quantity_in_stock < 0) {
     return "Quantity in stock must be a non-negative whole number.";
+  }
+  if (
+    payload.reorder_point !== null &&
+    (!Number.isInteger(payload.reorder_point) || payload.reorder_point < 0)
+  ) {
+    return "Reorder point must be a non-negative whole number.";
   }
   return "";
 }

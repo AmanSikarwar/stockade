@@ -23,3 +23,17 @@ export const orderKeys = {
   lists: () => [...orderKeys.all, "list"],
   list: (params = {}) => [...orderKeys.lists(), params],
 };
+
+export const categoryKeys = {
+  all: ["categories"],
+  detail: (categoryId) => [...categoryKeys.all, "detail", categoryId],
+  lists: () => [...categoryKeys.all, "list"],
+  list: (params = {}) => [...categoryKeys.lists(), params],
+};
+
+export const reportKeys = {
+  all: ["reports"],
+  revenue: (params = {}) => [...reportKeys.all, "revenue", params],
+  topProducts: (params = {}) => [...reportKeys.all, "top-products", params],
+  salesByCustomer: (params = {}) => [...reportKeys.all, "sales-by-customer", params],
+};

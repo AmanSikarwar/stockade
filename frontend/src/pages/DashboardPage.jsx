@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import { useCustomers } from "../api/customers";
 import { emptyDashboardMetrics, useDashboardMetrics } from "../api/dashboard";
 import { useOrders } from "../api/orders";
+import { useRevenueOverTime } from "../api/reports";
 import { FeedbackSuccess } from "../components/illustrations/Illustrations";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
@@ -27,7 +28,9 @@ export default function DashboardPage() {
   const metricsQuery = useDashboardMetrics();
   const ordersQuery = useOrders({ limit: 5, offset: 0 });
   const customersQuery = useCustomers({ limit: 100, offset: 0 });
+  const revenueQuery = useRevenueOverTime({ days: 30 });
   const dashboard = metricsQuery.data ?? emptyDashboardMetrics;
+  const revenue30d = revenueQuery.data?.total_revenue ?? "0";
 
   const customerMap = useMemo(
     () => new Map((customersQuery.data?.items ?? []).map((customer) => [customer.id, customer])),
@@ -105,11 +108,7 @@ export default function DashboardPage() {
         <MetricCard icon="box" label="Total products" value={dashboard.total_products} />
         <MetricCard icon="customers" label="Customers" value={dashboard.total_customers} />
         <MetricCard icon="orders" label="Orders" value={dashboard.total_orders} />
-        <MetricCard
-          icon="lowStock"
-          label="Low-stock products"
-          value={dashboard.low_stock_products_count}
-        />
+        <MetricCard icon="cart" label="Revenue · 30d" value={formatCurrency(revenue30d)} />
       </div>
 
       {metricsQuery.isPending ? (
