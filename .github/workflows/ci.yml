@@ -70,5 +70,8 @@ jobs:
       - name: Check frontend formatting
         run: npm --prefix frontend run format:check
 
+      - name: Run frontend tests
+        run: npm --prefix frontend run test
+
       - name: Build frontend
         run: npm --prefix frontend run build

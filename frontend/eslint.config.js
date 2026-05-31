@@ -25,10 +25,26 @@ export default defineConfig([
     },
   },
   {
-    files: ["eslint.config.js"],
+    files: ["eslint.config.js", "vite.config.js"],
     languageOptions: {
       globals: {
         ...globals.node,
+      },
+    },
+  },
+  {
+    files: ["src/**/*.test.{js,jsx}", "src/test/**/*.{js,jsx}"],
+    languageOptions: {
+      globals: {
+        describe: "readonly",
+        it: "readonly",
+        test: "readonly",
+        expect: "readonly",
+        vi: "readonly",
+        beforeEach: "readonly",
+        afterEach: "readonly",
+        beforeAll: "readonly",
+        afterAll: "readonly",
       },
     },
   },
