@@ -9,6 +9,7 @@ import { Avatar } from "../ui/Avatar";
 import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { ThemeToggle } from "../ui/ThemeToggle";
+import { Tooltip } from "../ui/Tooltip";
 
 const navGroups = [
   {
@@ -85,19 +86,19 @@ export function AppShell() {
             <nav className="nav-group" key={group.label}>
               <div className="nav-group-label">{group.label}</div>
               {group.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  end={item.to === "/app"}
-                  title={collapsed ? item.label : undefined}
-                  className={({ isActive }) => `nav-item ${isActive ? "on" : ""}`.trim()}
-                >
-                  <Icon name={item.icon} size={19} stroke={1.85} />
-                  <span className="nav-label">{item.label}</span>
-                  {item.badgeKey && badges[item.badgeKey] != null ? (
-                    <span className="badge">{badges[item.badgeKey]}</span>
-                  ) : null}
-                </NavLink>
+                <Tooltip key={item.to} label={item.label} disabled={!collapsed}>
+                  <NavLink
+                    to={item.to}
+                    end={item.to === "/app"}
+                    className={({ isActive }) => `nav-item ${isActive ? "on" : ""}`.trim()}
+                  >
+                    <Icon name={item.icon} size={19} stroke={1.85} />
+                    <span className="nav-label">{item.label}</span>
+                    {item.badgeKey && badges[item.badgeKey] != null ? (
+                      <span className="badge">{badges[item.badgeKey]}</span>
+                    ) : null}
+                  </NavLink>
+                </Tooltip>
               ))}
             </nav>
           ))}
