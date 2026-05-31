@@ -95,7 +95,18 @@ def list_orders(
         sort_dir=sort_dir,
     )
     return OrderListResponse(
-        items=[OrderSummaryResponse.model_validate(order) for order in orders],
+        items=[
+            OrderSummaryResponse(
+                id=order.id,
+                customer_id=order.customer_id,
+                customer_name=order.customer.full_name if order.customer else None,
+                status=order.status,
+                total_amount=order.total_amount,
+                created_at=order.created_at,
+                updated_at=order.updated_at,
+            )
+            for order in orders
+        ],
         total=total,
         limit=limit,
         offset=offset,
@@ -148,6 +159,7 @@ def build_order_response(order: Order) -> OrderResponse:
     return OrderResponse(
         id=order.id,
         customer_id=order.customer_id,
+        customer_name=order.customer.full_name if order.customer else None,
         status=order.status,
         total_amount=order.total_amount,
         created_at=order.created_at,

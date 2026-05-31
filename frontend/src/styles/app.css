@@ -531,6 +531,54 @@ svg {
   transform: rotate(90deg);
 }
 
+/* combobox (searchable select) */
+.combo {
+  position: relative;
+  width: 100%;
+}
+.combo-menu {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  max-height: 264px;
+  overflow-y: auto;
+  padding: 5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--e-3);
+  animation: sd-fade var(--m-fast) var(--ease);
+}
+.combo-status {
+  padding: 10px 12px;
+  color: var(--text-3);
+  font: 500 13px var(--font-sans);
+}
+.combo-option {
+  appearance: none;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 9px 10px;
+  border-radius: var(--r-sm);
+  color: var(--text);
+  font: 400 14px var(--font-sans);
+  display: block;
+}
+.combo-option.on {
+  background: var(--surface-2);
+}
+.combo-option .opt-sub {
+  display: block;
+  font: 500 12px var(--font-mono);
+  color: var(--text-3);
+  margin-top: 1px;
+}
+
 /* checkbox */
 .ctl {
   display: inline-flex;

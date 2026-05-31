@@ -48,6 +48,7 @@ def test_order_create_get_list_and_cancel_flow(
     order_id = created["id"]
     assert created["status"] == "active"
     assert created["total_amount"] == "6.50"
+    assert created["customer_name"] == "Ada Lovelace"
     assert created["line_items"][0]["unit_price"] == "3.25"
     assert db_session.get(Product, tape.id).quantity_in_stock == 8
 
@@ -56,10 +57,12 @@ def test_order_create_get_list_and_cancel_flow(
     listed = list_response.json()
     assert listed["total"] == 1
     assert listed["items"][0]["id"] == order_id
+    assert listed["items"][0]["customer_name"] == "Ada Lovelace"
 
     get_response = client.get(f"/orders/{order_id}", headers=auth_headers)
     assert get_response.status_code == 200
     assert get_response.json()["line_items"][0]["product_sku"] == "TAPE-001"
+    assert get_response.json()["customer_name"] == "Ada Lovelace"
 
     cancel_response = client.delete(f"/orders/{order_id}", headers=auth_headers)
     assert cancel_response.status_code == 204

@@ -11,6 +11,7 @@ import { Icon } from "../components/icons/Icon";
 import { Alert } from "../components/ui/Alert";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import { Combobox } from "../components/ui/Combobox";
 import { DataTable } from "../components/ui/DataTable";
 import { ProductCell } from "../components/ui/EntityCell";
 import { IconButton } from "../components/ui/IconButton";
@@ -19,10 +20,10 @@ import { ConfirmModal } from "../components/ui/Modal";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Pagination } from "../components/ui/Pagination";
 import { Pill } from "../components/ui/Pill";
-import { Select } from "../components/ui/Select";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import { Tabs } from "../components/ui/Tabs";
 import { formatCurrency, formatDateTime } from "../lib/format";
+import { useDebouncedValue } from "../lib/useDebouncedValue";
 
 const PAGE_SIZE = 10;
 
@@ -32,7 +33,13 @@ const statusTabs = [
   { label: "Cancelled", value: "cancelled" },
 ];
 
-const emptyOrderLine = () => ({ clientId: crypto.randomUUID(), product_id: "", quantity: "1" });
+const emptyOrderLine = () => ({
+  clientId: crypto.randomUUID(),
+  product_id: "",
+  product: null,
+  productQuery: "",
+  quantity: "1",
+});
 
 function statusTone(status) {
   return status === "active" ? "success" : "danger";
@@ -65,16 +72,11 @@ export default function OrdersPage() {
     sort_by: sort.by,
     sort_dir: sort.dir,
   });
-  const customersQuery = useCustomers({ limit: 100, offset: 0 });
   const createOrder = useCreateOrder();
   const cancelOrder = useCancelOrder();
 
   const rows = ordersQuery.data?.items ?? [];
   const total = ordersQuery.data?.total ?? 0;
-  const customerMap = useMemo(
-    () => new Map((customersQuery.data?.items ?? []).map((customer) => [customer.id, customer])),
-    [customersQuery.data?.items],
-  );
 
   function selectTab(value) {
     setStatusFilter(value);
@@ -102,14 +104,12 @@ export default function OrdersPage() {
     {
       header: "Customer",
       key: "customer_id",
-      render: (order) => {
-        const customer = customerMap.get(order.customer_id);
-        return customer ? (
-          customer.full_name
+      render: (order) =>
+        order.customer_name ? (
+          order.customer_name
         ) : (
           <span className="t-num">{order.customer_id.slice(0, 8)}</span>
-        );
-      },
+        ),
     },
     {
       header: "Date",
@@ -263,35 +263,35 @@ export default function OrdersPage() {
 }
 
 function OrderBuilder({ error, isSaving, onCancel, onSubmit }) {
-  const customersQuery = useCustomers({ limit: 100, offset: 0 });
-  const productsQuery = useProducts({ limit: 100, offset: 0 });
   const [customerId, setCustomerId] = useState("");
+  const [customerQuery, setCustomerQuery] = useState("");
   const [lineItems, setLineItems] = useState([emptyOrderLine()]);
   const [validationError, setValidationError] = useState("");
 
-  const products = productsQuery.data?.items ?? [];
-  const productMap = useMemo(
-    () => new Map(products.map((product) => [product.id, product])),
-    [products],
+  const overStockLines = lineItems.filter(
+    (line) => line.product && Number(line.quantity) > line.product.quantity_in_stock,
   );
 
-  const overStockLines = lineItems.filter((line) => {
-    const product = productMap.get(line.product_id);
-    return product && Number(line.quantity) > product.quantity_in_stock;
-  });
-
   const subtotal = lineItems.reduce((sum, line) => {
-    const product = productMap.get(line.product_id);
     const quantity = Number(line.quantity);
-    if (!product || Number.isNaN(quantity)) {
+    if (!line.product || Number.isNaN(quantity)) {
       return sum;
     }
-    return sum + Number(product.price) * quantity;
+    return sum + Number(line.product.price) * quantity;
   }, 0);
 
-  function updateLine(clientId, field, value) {
+  // Map of products the user has actually selected, used to label API errors.
+  const lineProductMap = useMemo(
+    () =>
+      new Map(
+        lineItems.filter((line) => line.product).map((line) => [line.product.id, line.product]),
+      ),
+    [lineItems],
+  );
+
+  function updateLine(clientId, changes) {
     setLineItems((current) =>
-      current.map((line) => (line.clientId === clientId ? { ...line, [field]: value } : line)),
+      current.map((line) => (line.clientId === clientId ? { ...line, ...changes } : line)),
     );
   }
 
@@ -337,20 +337,19 @@ function OrderBuilder({ error, isSaving, onCancel, onSubmit }) {
                 *
               </span>
             </label>
-            <Select
+            <CustomerPicker
               id="order-customer"
-              disabled={customersQuery.isPending}
-              onChange={(event) => setCustomerId(event.target.value)}
-              required
-              value={customerId}
-            >
-              <option value="">Select a customer…</option>
-              {(customersQuery.data?.items ?? []).map((customer) => (
-                <option key={customer.id} value={customer.id}>
-                  {customer.full_name} ({customer.email})
-                </option>
-              ))}
-            </Select>
+              query={customerQuery}
+              onQueryChange={(value) => {
+                setCustomerQuery(value);
+                setCustomerId("");
+              }}
+              onSelect={(customer) => {
+                setCustomerId(customer.id);
+                setCustomerQuery(`${customer.full_name} (${customer.email})`);
+              }}
+              invalid={Boolean(validationError) && !customerId}
+            />
           </div>
 
           <div className="field">
@@ -363,66 +362,25 @@ function OrderBuilder({ error, isSaving, onCancel, onSubmit }) {
               <span />
             </div>
 
-            {lineItems.map((line) => {
-              const product = productMap.get(line.product_id);
-              const quantity = Number(line.quantity) || 0;
-              const lineTotal = product ? Number(product.price) * quantity : 0;
-              const over = product && quantity > product.quantity_in_stock;
-              return (
-                <div className="order-line" key={line.clientId}>
-                  <div className="field-product">
-                    <Select
-                      aria-label="Product"
-                      disabled={productsQuery.isPending}
-                      onChange={(event) =>
-                        updateLine(line.clientId, "product_id", event.target.value)
-                      }
-                      required
-                      value={line.product_id}
-                    >
-                      <option value="">Select a product…</option>
-                      {products.map((option) => (
-                        <option key={option.id} value={option.id}>
-                          {option.name} · {option.sku} · {option.quantity_in_stock} available
-                        </option>
-                      ))}
-                    </Select>
-                    {over ? (
-                      <div className="field-error" style={{ marginTop: 6 }}>
-                        <Icon name="lowStock" size={13} stroke={2} />
-                        Only {product.quantity_in_stock} in stock
-                      </div>
-                    ) : null}
-                  </div>
-                  <input
-                    className={`input ${over ? "is-error" : ""}`.trim()}
-                    aria-label="Quantity"
-                    inputMode="numeric"
-                    min="1"
-                    onChange={(event) => updateLine(line.clientId, "quantity", event.target.value)}
-                    required
-                    step="1"
-                    style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}
-                    type="number"
-                    value={line.quantity}
-                  />
-                  <div className="line-static unit">
-                    {product ? formatCurrency(product.price) : "—"}
-                  </div>
-                  <div className="line-static total">{formatCurrency(lineTotal)}</div>
-                  <div className="line-trash">
-                    {lineItems.length > 1 ? (
-                      <IconButton
-                        icon="trash"
-                        label="Remove line"
-                        size="sm"
-                        onClick={() => removeLine(line.clientId)}
-                      />
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
+            {lineItems.map((line) => (
+              <OrderLineRow
+                key={line.clientId}
+                line={line}
+                canRemove={lineItems.length > 1}
+                onQueryChange={(value) =>
+                  updateLine(line.clientId, { productQuery: value, product_id: "", product: null })
+                }
+                onSelectProduct={(product) =>
+                  updateLine(line.clientId, {
+                    product_id: product.id,
+                    product,
+                    productQuery: `${product.name} · ${product.sku}`,
+                  })
+                }
+                onQuantityChange={(value) => updateLine(line.clientId, { quantity: value })}
+                onRemove={() => removeLine(line.clientId)}
+              />
+            ))}
 
             <div style={{ paddingTop: 14 }}>
               <Button
@@ -443,7 +401,7 @@ function OrderBuilder({ error, isSaving, onCancel, onSubmit }) {
               Reduce the flagged quantities or restock before placing the order.
             </Alert>
           ) : null}
-          {error ? <Alert tone="danger">{formatOrderError(error, productMap)}</Alert> : null}
+          {error ? <Alert tone="danger">{formatOrderError(error, lineProductMap)}</Alert> : null}
           {validationError ? <Alert tone="warning">{validationError}</Alert> : null}
 
           <Card pad>
@@ -612,6 +570,101 @@ export function OrderDetailPage() {
           </div>
         </>
       ) : null}
+    </div>
+  );
+}
+
+function CustomerPicker({ id, query, onQueryChange, onSelect, invalid }) {
+  const debounced = useDebouncedValue(query, 250);
+  const customersQuery = useCustomers({ q: debounced || undefined, limit: 20, offset: 0 });
+  const items = customersQuery.data?.items ?? [];
+
+  return (
+    <Combobox
+      id={id}
+      query={query}
+      onQueryChange={onQueryChange}
+      items={items}
+      loading={customersQuery.isFetching}
+      onSelect={onSelect}
+      placeholder="Search customers by name or email…"
+      emptyLabel="No customers found"
+      required
+      invalid={invalid}
+      renderOption={(customer) => (
+        <>
+          {customer.full_name}
+          <span className="opt-sub">{customer.email}</span>
+        </>
+      )}
+    />
+  );
+}
+
+function OrderLineRow({
+  line,
+  canRemove,
+  onQueryChange,
+  onSelectProduct,
+  onQuantityChange,
+  onRemove,
+}) {
+  const debounced = useDebouncedValue(line.productQuery, 250);
+  const productsQuery = useProducts({ q: debounced || undefined, limit: 20, offset: 0 });
+  const items = productsQuery.data?.items ?? [];
+
+  const product = line.product;
+  const quantity = Number(line.quantity) || 0;
+  const lineTotal = product ? Number(product.price) * quantity : 0;
+  const over = product && quantity > product.quantity_in_stock;
+
+  return (
+    <div className="order-line">
+      <div className="field-product">
+        <Combobox
+          query={line.productQuery}
+          onQueryChange={onQueryChange}
+          items={items}
+          loading={productsQuery.isFetching}
+          onSelect={onSelectProduct}
+          placeholder="Search products…"
+          emptyLabel="No products found"
+          invalid={Boolean(over)}
+          renderOption={(option) => (
+            <>
+              {option.name}
+              <span className="opt-sub">
+                {option.sku} · {option.quantity_in_stock} available
+              </span>
+            </>
+          )}
+        />
+        {over ? (
+          <div className="field-error" style={{ marginTop: 6 }}>
+            <Icon name="lowStock" size={13} stroke={2} />
+            Only {product.quantity_in_stock} in stock
+          </div>
+        ) : null}
+      </div>
+      <input
+        className={`input ${over ? "is-error" : ""}`.trim()}
+        aria-label="Quantity"
+        inputMode="numeric"
+        min="1"
+        onChange={(event) => onQuantityChange(event.target.value)}
+        required
+        step="1"
+        style={{ textAlign: "right", fontFamily: "var(--font-mono)" }}
+        type="number"
+        value={line.quantity}
+      />
+      <div className="line-static unit">{product ? formatCurrency(product.price) : "—"}</div>
+      <div className="line-static total">{formatCurrency(lineTotal)}</div>
+      <div className="line-trash">
+        {canRemove ? (
+          <IconButton icon="trash" label="Remove line" size="sm" onClick={onRemove} />
+        ) : null}
+      </div>
     </div>
   );
 }

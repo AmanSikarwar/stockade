@@ -36,6 +36,7 @@ class OrderSummaryResponse(BaseModel):
 
     id: UUID
     customer_id: UUID
+    customer_name: str | None = None
     status: str
     total_amount: Decimal
     created_at: datetime

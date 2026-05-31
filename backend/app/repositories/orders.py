@@ -46,6 +46,7 @@ class OrderRepository(OrganizationScopedRepository):
                 .order_by(ordering, Order.id)
                 .limit(limit)
                 .offset(offset)
+                .options(selectinload(Order.customer))
             ).all()
         )
         return orders, total
@@ -57,7 +58,10 @@ class OrderRepository(OrganizationScopedRepository):
                 Order.id == order_id,
                 Order.organization_id == self.organization_id,
             )
-            .options(selectinload(Order.line_items).selectinload(OrderLineItem.product))
+            .options(
+                selectinload(Order.customer),
+                selectinload(Order.line_items).selectinload(OrderLineItem.product),
+            )
         ).one_or_none()
 
     def get_by_id_for_update(self, order_id: UUID) -> Order | None:
