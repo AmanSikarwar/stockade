@@ -7,12 +7,9 @@ bootstrap command for the default organization and admin user.
 ## Image
 
 ```bash
-docker pull <namespace>/stockade-backend:latest
-docker pull <namespace>/stockade-backend:0.1.0
+docker buildx imagetools inspect amansikarwar/stockade-backend:0.1.0
+docker pull amansikarwar/stockade-backend:lates
 ```
-
-Replace `<namespace>` with the Docker Hub namespace used for the public
-repository.
 
 ## Runtime Requirements
 
