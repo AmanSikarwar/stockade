@@ -84,6 +84,7 @@ def list_orders(
     session: Annotated[Session, Depends(get_db_session)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    q: Annotated[str | None, Query(min_length=1, max_length=100)] = None,
     order_status: Annotated[Literal["active", "cancelled"] | None, Query(alias="status")] = None,
     customer_id: UUID | None = None,
     sort_by: Annotated[Literal["created_at", "total_amount", "status"] | None, Query()] = None,
@@ -95,6 +96,7 @@ def list_orders(
         offset=offset,
         status=order_status,
         customer_id=customer_id,
+        search=q,
         sort_by=sort_by,
         sort_dir=sort_dir,
     )

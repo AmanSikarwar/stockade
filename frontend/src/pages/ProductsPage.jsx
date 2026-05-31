@@ -45,7 +45,7 @@ const emptyProductForm = {
 
 export default function ProductsPage() {
   const { notify } = useNotifications();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryParam = searchParams.get("q") ?? "";
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [filters, setFilters] = useState({
@@ -176,6 +176,13 @@ export default function ProductsPage() {
 
   function updateSearch(value) {
     setFilters((current) => ({ ...current, offset: 0, q: value }));
+    const next = new URLSearchParams(searchParams);
+    if (value) {
+      next.set("q", value);
+    } else {
+      next.delete("q");
+    }
+    setSearchParams(next, { replace: true });
   }
 
   function toggleInactive(event) {

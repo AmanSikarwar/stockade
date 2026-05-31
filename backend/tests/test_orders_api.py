@@ -123,6 +123,53 @@ def test_order_list_filters_by_status_and_customer(
     assert [item["id"] for item in customer_response.json()["items"]] == [first_order["id"]]
 
 
+def test_order_list_searches_by_order_and_customer(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    db_session: Session,
+    admin_user: User,
+) -> None:
+    first_customer_id = create_customer(db_session, admin_user.organization_id, email_slug="ada")
+    second_customer_id = create_customer(db_session, admin_user.organization_id, email_slug="grace")
+    first_product = create_product(
+        db_session,
+        admin_user.organization_id,
+        sku="TAPE-002",
+        price=Decimal("3.25"),
+        stock=10,
+    )
+    second_product = create_product(
+        db_session,
+        admin_user.organization_id,
+        sku="BOX-002",
+        price=Decimal("2.00"),
+        stock=10,
+    )
+
+    first_order = client.post(
+        "/orders",
+        headers=auth_headers,
+        json={
+            "customer_id": str(first_customer_id),
+            "line_items": [{"product_id": str(first_product.id), "quantity": 1}],
+        },
+    ).json()
+    second_order = client.post(
+        "/orders",
+        headers=auth_headers,
+        json={
+            "customer_id": str(second_customer_id),
+            "line_items": [{"product_id": str(second_product.id), "quantity": 1}],
+        },
+    ).json()
+
+    customer_response = client.get("/orders?q=grace", headers=auth_headers)
+    order_response = client.get(f"/orders?q={first_order['id'][:8]}", headers=auth_headers)
+
+    assert [item["id"] for item in customer_response.json()["items"]] == [second_order["id"]]
+    assert [item["id"] for item in order_response.json()["items"]] == [first_order["id"]]
+
+
 def test_order_insufficient_stock_returns_conflict_and_keeps_inventory(
     client: TestClient,
     auth_headers: dict[str, str],

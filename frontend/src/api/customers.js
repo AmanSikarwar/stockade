@@ -4,12 +4,13 @@ import { useAuth } from "../auth/AuthContext";
 import { customerKeys } from "./keys";
 import { toQueryString } from "./params";
 
-export function useCustomers(params = {}) {
+export function useCustomers(params = {}, options = {}) {
   const { apiRequest } = useAuth();
 
   return useQuery({
     queryKey: customerKeys.list(params),
     queryFn: () => apiRequest(`/customers${toQueryString(params)}`),
+    ...options,
   });
 }
 

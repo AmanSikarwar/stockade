@@ -10,6 +10,7 @@ import { Button } from "../ui/Button";
 import { IconButton } from "../ui/IconButton";
 import { ThemeToggle } from "../ui/ThemeToggle";
 import { Tooltip } from "../ui/Tooltip";
+import { GlobalSearch } from "./GlobalSearch";
 
 const navGroups = [
   {
@@ -39,7 +40,6 @@ export function AppShell() {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(COLLAPSE_KEY) === "1";
   });
-  const [search, setSearch] = useState("");
 
   function toggleCollapsed() {
     setCollapsed((prev) => {
@@ -57,12 +57,6 @@ export function AppShell() {
   useEffect(() => {
     setNavOpen(false);
   }, [location.pathname]);
-
-  function submitSearch(event) {
-    event.preventDefault();
-    const term = search.trim();
-    navigate(term ? `/app/products?q=${encodeURIComponent(term)}` : "/app/products");
-  }
 
   return (
     <div className={`shell ${collapsed ? "nav-collapsed" : ""}`.trim()}>
@@ -132,19 +126,7 @@ export function AppShell() {
             variant="ghost"
             onClick={toggleCollapsed}
           />
-          <form className="input-affix topbar-search" role="search" onSubmit={submitSearch}>
-            <span className="affix-icon">
-              <Icon name="search" size={17} />
-            </span>
-            <input
-              className="input"
-              type="search"
-              aria-label="Search products"
-              placeholder="Search products, orders, customers…"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </form>
+          <GlobalSearch />
           <span className="spacer" />
           <ThemeToggle />
           <Button icon="plus" onClick={() => navigate("/app/orders?new=1")}>

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 
 import {
   useCategories,
@@ -24,7 +25,9 @@ const PAGE_SIZE = 50;
 
 export default function CategoriesPage() {
   const { notify } = useNotifications();
-  const [search, setSearch] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryParam = searchParams.get("q") ?? "";
+  const [search, setSearch] = useState(queryParam);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [formCategory, setFormCategory] = useState(null);
 
@@ -35,6 +38,10 @@ export default function CategoriesPage() {
 
   const rows = categoriesQuery.data?.items ?? [];
   const total = categoriesQuery.data?.total ?? 0;
+
+  useEffect(() => {
+    setSearch((current) => (current === queryParam ? current : queryParam));
+  }, [queryParam]);
 
   const columns = [
     {
@@ -130,6 +137,17 @@ export default function CategoriesPage() {
     }
   }
 
+  function updateSearch(value) {
+    setSearch(value);
+    const next = new URLSearchParams(searchParams);
+    if (value) {
+      next.set("q", value);
+    } else {
+      next.delete("q");
+    }
+    setSearchParams(next, { replace: true });
+  }
+
   const mutationError = createCategory.error || updateCategory.error;
   const isSaving = createCategory.isPending || updateCategory.isPending;
 
@@ -161,7 +179,7 @@ export default function CategoriesPage() {
         toolbar={
           <SearchField
             label="Search categories"
-            onChange={(event) => setSearch(event.target.value)}
+            onChange={(event) => updateSearch(event.target.value)}
             placeholder="Search categories…"
             value={search}
           />

@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from decimal import Decimal
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.customer import Customer
@@ -28,6 +28,7 @@ class OrderRepository(OrganizationScopedRepository):
         offset: int,
         status: str | None,
         customer_id: UUID | None,
+        search: str | None = None,
         sort_by: str | None = None,
         sort_dir: str = "desc",
     ) -> tuple[list[Order], int]:
@@ -36,6 +37,18 @@ class OrderRepository(OrganizationScopedRepository):
             conditions.append(Order.status == status)
         if customer_id is not None:
             conditions.append(Order.customer_id == customer_id)
+        if search:
+            pattern = f"%{search}%"
+            conditions.append(
+                or_(
+                    cast(Order.id, String).ilike(pattern),
+                    cast(Order.customer_id, String).ilike(pattern),
+                    Order.status.ilike(pattern),
+                    Order.customer.has(
+                        or_(Customer.full_name.ilike(pattern), Customer.email.ilike(pattern))
+                    ),
+                )
+            )
 
         total = self.session.scalar(select(func.count(Order.id)).where(*conditions)) or 0
         ordering = resolve_order(ORDER_SORTS, Order.created_at, sort_by, sort_dir)

@@ -20,6 +20,7 @@ import { ConfirmModal } from "../components/ui/Modal";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Pagination } from "../components/ui/Pagination";
 import { Pill } from "../components/ui/Pill";
+import { SearchField } from "../components/ui/SearchField";
 import { TableSkeleton } from "../components/ui/Skeleton";
 import { Tabs } from "../components/ui/Tabs";
 import { formatCurrency, formatDateTime } from "../lib/format";
@@ -48,12 +49,14 @@ function statusTone(status) {
 export default function OrdersPage() {
   const { notify } = useNotifications();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryParam = searchParams.get("q") ?? "";
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [offset, setOffset] = useState(0);
+  const [orderSearch, setOrderSearch] = useState(queryParam);
   const [sort, setSort] = useState({ by: undefined, dir: "desc" });
-  const [searchParams, setSearchParams] = useSearchParams();
 
   // Open the builder when arriving from the topbar "New order" action.
   useEffect(() => {
@@ -65,9 +68,15 @@ export default function OrdersPage() {
     }
   }, [searchParams, setSearchParams]);
 
+  useEffect(() => {
+    setOrderSearch((current) => (current === queryParam ? current : queryParam));
+    setOffset(0);
+  }, [queryParam]);
+
   const ordersQuery = useOrders({
     limit: PAGE_SIZE,
     offset,
+    q: orderSearch || undefined,
     status: statusFilter === "all" ? undefined : statusFilter,
     sort_by: sort.by,
     sort_dir: sort.dir,
@@ -81,6 +90,18 @@ export default function OrdersPage() {
   function selectTab(value) {
     setStatusFilter(value);
     setOffset(0);
+  }
+
+  function updateOrderSearch(value) {
+    setOrderSearch(value);
+    setOffset(0);
+    const next = new URLSearchParams(searchParams);
+    if (value) {
+      next.set("q", value);
+    } else {
+      next.delete("q");
+    }
+    setSearchParams(next, { replace: true });
   }
 
   function handleSort(key) {
@@ -212,7 +233,18 @@ export default function OrdersPage() {
       <Card
         title="All orders"
         count={total}
-        toolbar={<Tabs items={statusTabs} value={statusFilter} onChange={selectTab} />}
+        toolbar={
+          <>
+            <SearchField
+              className="toolbar-search"
+              label="Search orders"
+              onChange={(event) => updateOrderSearch(event.target.value)}
+              placeholder="Search orders…"
+              value={orderSearch}
+            />
+            <Tabs items={statusTabs} value={statusFilter} onChange={selectTab} />
+          </>
+        }
         footer={
           total > 0 ? (
             <Pagination total={total} limit={PAGE_SIZE} offset={offset} onChange={setOffset} />

@@ -156,14 +156,17 @@ class OrderService:
         offset: int,
         status: str | None = None,
         customer_id: UUID | None = None,
+        search: str | None = None,
         sort_by: str | None = None,
         sort_dir: str = "desc",
     ) -> tuple[list[Order], int]:
+        normalized_search = search.strip() if search else None
         return self.repository.list(
             limit=limit,
             offset=offset,
             status=status,
             customer_id=customer_id,
+            search=normalized_search,
             sort_by=sort_by,
             sort_dir=sort_dir,
         )

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 
 import {
   useCreateCustomer,
@@ -31,8 +32,15 @@ const emptyCustomerForm = {
 
 export default function CustomersPage() {
   const { notify } = useNotifications();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const queryParam = searchParams.get("q") ?? "";
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [filters, setFilters] = useState({ limit: PAGE_SIZE, offset: 0, q: "", sort_dir: "desc" });
+  const [filters, setFilters] = useState({
+    limit: PAGE_SIZE,
+    offset: 0,
+    q: queryParam,
+    sort_dir: "desc",
+  });
   const [formCustomer, setFormCustomer] = useState(null);
   const customersQuery = useCustomers(filters);
   const createCustomer = useCreateCustomer();
@@ -40,6 +48,12 @@ export default function CustomersPage() {
   const deleteCustomer = useDeleteCustomer();
   const rows = customersQuery.data?.items ?? [];
   const total = customersQuery.data?.total ?? 0;
+
+  useEffect(() => {
+    setFilters((current) =>
+      current.q === queryParam ? current : { ...current, offset: 0, q: queryParam },
+    );
+  }, [queryParam]);
 
   const columns = [
     {
@@ -91,6 +105,13 @@ export default function CustomersPage() {
 
   function updateSearch(value) {
     setFilters((current) => ({ ...current, offset: 0, q: value }));
+    const next = new URLSearchParams(searchParams);
+    if (value) {
+      next.set("q", value);
+    } else {
+      next.delete("q");
+    }
+    setSearchParams(next, { replace: true });
   }
 
   function changePage(offset) {
