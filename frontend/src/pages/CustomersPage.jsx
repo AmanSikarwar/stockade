@@ -1,6 +1,11 @@
 import { useState } from "react";
 
-import { useCreateCustomer, useCustomers, useDeleteCustomer } from "../api/customers";
+import {
+  useCreateCustomer,
+  useCustomers,
+  useDeleteCustomer,
+  useUpdateCustomer,
+} from "../api/customers";
 import { useNotifications } from "../components/feedback/NotificationContext";
 import { EmptyCustomers } from "../components/illustrations/Illustrations";
 import { Alert } from "../components/ui/Alert";
@@ -28,9 +33,10 @@ export default function CustomersPage() {
   const { notify } = useNotifications();
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [filters, setFilters] = useState({ limit: PAGE_SIZE, offset: 0, q: "", sort_dir: "desc" });
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formCustomer, setFormCustomer] = useState(null);
   const customersQuery = useCustomers(filters);
   const createCustomer = useCreateCustomer();
+  const updateCustomer = useUpdateCustomer();
   const deleteCustomer = useDeleteCustomer();
   const rows = customersQuery.data?.items ?? [];
   const total = customersQuery.data?.total ?? 0;
@@ -59,6 +65,13 @@ export default function CustomersPage() {
       render: (customer) => (
         <div className="row-actions">
           <IconButton
+            icon="edit"
+            label={`Edit ${customer.full_name}`}
+            variant="secondary"
+            size="sm"
+            onClick={() => openForm(customer)}
+          />
+          <IconButton
             icon="trash"
             label={`Delete ${customer.full_name}`}
             variant="secondary"
@@ -70,9 +83,10 @@ export default function CustomersPage() {
     },
   ];
 
-  function openForm() {
+  function openForm(customer) {
     createCustomer.reset();
-    setIsFormOpen(true);
+    updateCustomer.reset();
+    setFormCustomer(customer ?? emptyCustomerForm);
   }
 
   function updateSearch(value) {
@@ -93,13 +107,27 @@ export default function CustomersPage() {
   }
 
   async function handleSubmit(payload) {
+    if (formCustomer?.id) {
+      const customer = await updateCustomer.mutateAsync({
+        customerId: formCustomer.id,
+        payload,
+      });
+      notify({
+        message: `${customer.full_name} was updated.`,
+        tone: "success",
+        title: "Customer saved",
+      });
+      setFormCustomer(null);
+      return;
+    }
+
     const customer = await createCustomer.mutateAsync(payload);
     notify({
       message: `${customer.full_name} was created.`,
       tone: "success",
       title: "Customer added",
     });
-    setIsFormOpen(false);
+    setFormCustomer(null);
   }
 
   async function handleDelete() {
@@ -123,17 +151,19 @@ export default function CustomersPage() {
         title="Customers"
         subtitle={`${total} ${total === 1 ? "customer" : "customers"}`}
         actions={
-          <Button icon="plus" onClick={openForm}>
+          <Button icon="plus" onClick={() => openForm()}>
             New customer
           </Button>
         }
       />
 
-      {isFormOpen ? (
+      {formCustomer ? (
         <CustomerFormCard
-          error={createCustomer.error?.message}
-          isSaving={createCustomer.isPending}
-          onCancel={() => setIsFormOpen(false)}
+          key={formCustomer.id ?? "new"}
+          customer={formCustomer}
+          error={(createCustomer.error || updateCustomer.error)?.message}
+          isSaving={createCustomer.isPending || updateCustomer.isPending}
+          onCancel={() => setFormCustomer(null)}
           onSubmit={handleSubmit}
         />
       ) : null}
@@ -187,7 +217,7 @@ export default function CustomersPage() {
                 <EmptyCustomers />
                 <h3>No customers yet</h3>
                 <p>Add a customer to start creating orders against their account.</p>
-                <Button icon="plus" onClick={openForm}>
+                <Button icon="plus" onClick={() => openForm()}>
                   New customer
                 </Button>
               </div>
@@ -210,8 +240,13 @@ export default function CustomersPage() {
   );
 }
 
-function CustomerFormCard({ error, isSaving, onCancel, onSubmit }) {
-  const [form, setForm] = useState(emptyCustomerForm);
+function CustomerFormCard({ customer, error, isSaving, onCancel, onSubmit }) {
+  const isEditing = Boolean(customer?.id);
+  const [form, setForm] = useState(() => ({
+    email: customer?.email ?? "",
+    full_name: customer?.full_name ?? "",
+    phone_number: customer?.phone_number ?? "",
+  }));
   const [validationError, setValidationError] = useState("");
 
   function updateField(field, value) {
@@ -241,7 +276,7 @@ function CustomerFormCard({ error, isSaving, onCancel, onSubmit }) {
   }
 
   return (
-    <Card title="New customer" pad>
+    <Card title={isEditing ? "Edit customer" : "New customer"} pad>
       <form onSubmit={handleSubmit} className="stack">
         <div className="form-grid">
           <FormField
@@ -282,7 +317,7 @@ function CustomerFormCard({ error, isSaving, onCancel, onSubmit }) {
 
         <div className="form-actions">
           <Button icon="check" isLoading={isSaving} type="submit">
-            Create customer
+            {isEditing ? "Save customer" : "Create customer"}
           </Button>
           <Button onClick={onCancel} type="button" variant="secondary">
             Cancel

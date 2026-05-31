@@ -37,6 +37,21 @@ export function useCreateCustomer() {
   });
 }
 
+export function useUpdateCustomer() {
+  const { apiRequest } = useAuth();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ customerId, payload }) =>
+      apiRequest(`/customers/${customerId}`, { method: "PUT", body: payload }),
+    onSuccess: async (customer) => {
+      queryClient.setQueryData(customerKeys.detail(customer.id), customer);
+      await queryClient.invalidateQueries({ queryKey: customerKeys.lists() });
+      return customer;
+    },
+  });
+}
+
 export function useDeleteCustomer() {
   const { apiRequest } = useAuth();
   const queryClient = useQueryClient();
