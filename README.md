@@ -232,6 +232,7 @@ Endpoints:
 | `GET`    | `/health`                        | Liveness.                                                                          |
 | `GET`    | `/ready`                         | Readiness.                                                                         |
 | `POST`   | `/auth/login`                    | Body: `email`, `password`.                                                         |
+| `POST`   | `/auth/refresh`                  | Issue a fresh token for a still-valid session (sliding expiry).                    |
 | `POST`   | `/products`                      | Create product (optional `category_id`, `reorder_point`).                         |
 | `GET`    | `/products`                      | Query: `limit`, `offset`, `q`, `include_inactive`, `category_id`, `sort_by`, `sort_dir`. |
 | `GET`    | `/products/{id}`                 | Get product.                                                                       |
