@@ -412,8 +412,75 @@ Docker Hub overview copy is prepared in `docs/dockerhub-overview.md`.
 
 ## Hosted Backend Deployment
 
-The recommended backend path is Render with a managed Render PostgreSQL
-database. The deployment guide was written against the current Render docs for
+The backend can deploy to Railway or Render with a managed PostgreSQL database.
+The container runs Alembic migrations and the idempotent bootstrap on startup.
+
+### Railway Backend
+
+The repo includes `backend/railway.json` for a Railway backend service. Railway
+should build from the `backend` directory so the existing backend Dockerfile can
+keep its current build context.
+
+Required Railway service settings:
+
+- Service type: GitHub repository service
+- Root Directory: `/backend`
+- Config File: `/backend/railway.json`
+- Builder: Dockerfile, from `backend/railway.json`
+- Health check path: `/ready`, from `backend/railway.json`
+- Start command: leave empty so the Dockerfile runs `./scripts/start.sh`
+- Do not set `BACKEND_PORT`; Railway injects `PORT`, and the backend uses it
+  when `BACKEND_PORT` is unset
+
+Add a Railway Postgres service, then set backend variables:
+
+```text
+APP_NAME=Stockade API
+ENVIRONMENT=production
+LOG_LEVEL=INFO
+BACKEND_HOST=0.0.0.0
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+JWT_SECRET_KEY=REPLACE_WITH_NEW_SECRET_AT_LEAST_32_CHARACTERS
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=60
+DEFAULT_ORGANIZATION_NAME=REPLACE_WITH_ORGANIZATION_NAME
+ADMIN_EMAIL=REPLACE_WITH_ADMIN_EMAIL
+ADMIN_PASSWORD=REPLACE_WITH_INITIAL_ADMIN_PASSWORD
+CORS_ORIGINS=REPLACE_WITH_DEPLOYED_FRONTEND_ORIGIN
+LOW_STOCK_THRESHOLD=5
+```
+
+If the Railway database service is not named `Postgres`, adjust the reference in
+`DATABASE_URL` to match the service name.
+
+CLI deployment flow after creating/linking the Railway project:
+
+```bash
+railway link
+railway add --database postgres
+railway variable set 'DATABASE_URL=${{Postgres.DATABASE_URL}}' --service stockade-backend
+railway variable set ENVIRONMENT=production --service stockade-backend
+railway variable set BACKEND_HOST=0.0.0.0 --service stockade-backend
+railway up ./backend --path-as-root --service stockade-backend
+```
+
+Set the remaining secret values in Railway's Variables tab or with additional
+`railway variable set` commands before the first production boot.
+
+Verify the backend after Railway assigns a public domain:
+
+```bash
+: "${STOCKADE_BACKEND_URL:?Set STOCKADE_BACKEND_URL first}"
+curl -sS "$STOCKADE_BACKEND_URL/ready"
+curl -sS "$STOCKADE_BACKEND_URL/docs"
+```
+
+Set a production-grade `ADMIN_PASSWORD` before first boot. The bootstrap process
+is idempotent and does not overwrite an existing admin password on later boots.
+
+### Render Backend
+
+The Render deployment guide was written against the current Render docs for
 Docker web services, Blueprints, environment variables, health checks, and
 PostgreSQL wiring.
 
