@@ -11,6 +11,11 @@ from app.schemas.products import (
     ProductResponse,
     ProductUpdateRequest,
 )
+from app.schemas.stock_movements import (
+    StockAdjustRequest,
+    StockMovementListResponse,
+    StockMovementResponse,
+)
 from app.services.products import (
     DuplicateProductSkuError,
     ProductNotFoundError,
@@ -122,6 +127,57 @@ def delete_product(
     except ProductValidationError as exc:
         raise product_error(status.HTTP_409_CONFLICT, "product_delete_conflict", str(exc)) from exc
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post(
+    "/{product_id}/adjust-stock",
+    response_model=ProductResponse,
+    summary="Adjust product stock",
+)
+def adjust_stock(
+    product_id: UUID,
+    payload: StockAdjustRequest,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+) -> ProductResponse:
+    service = ProductService(session, current_user.organization_id)
+    try:
+        product = service.adjust_stock(
+            product_id,
+            delta=payload.delta,
+            reason=payload.reason,
+            note=payload.note,
+        )
+    except ProductNotFoundError as exc:
+        raise product_error(status.HTTP_404_NOT_FOUND, "product_not_found", str(exc)) from exc
+    except ProductValidationError as exc:
+        raise product_error(status.HTTP_400_BAD_REQUEST, "invalid_adjustment", str(exc)) from exc
+    return ProductResponse.model_validate(product)
+
+
+@router.get(
+    "/{product_id}/stock-movements",
+    response_model=StockMovementListResponse,
+    summary="List product stock movements",
+)
+def list_stock_movements(
+    product_id: UUID,
+    current_user: Annotated[CurrentUser, Depends(get_current_user)],
+    session: Annotated[Session, Depends(get_db_session)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> StockMovementListResponse:
+    service = ProductService(session, current_user.organization_id)
+    try:
+        movements, total = service.list_stock_movements(product_id, limit=limit, offset=offset)
+    except ProductNotFoundError as exc:
+        raise product_error(status.HTTP_404_NOT_FOUND, "product_not_found", str(exc)) from exc
+    return StockMovementListResponse(
+        items=[StockMovementResponse.model_validate(movement) for movement in movements],
+        total=total,
+        limit=limit,
+        offset=offset,
+    )
 
 
 def product_error(status_code: int, code: str, message: str) -> HTTPException:

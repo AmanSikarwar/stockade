@@ -64,6 +64,17 @@ class ProductRepository(OrganizationScopedRepository):
             )
         ).one_or_none()
 
+    def get_active_for_update(self, product_id: UUID) -> Product | None:
+        return self.session.scalars(
+            select(Product)
+            .where(
+                Product.id == product_id,
+                Product.organization_id == self.organization_id,
+                Product.active.is_(True),
+            )
+            .with_for_update(of=Product)
+        ).one_or_none()
+
     def get_by_sku(self, sku: str) -> Product | None:
         return self.session.scalars(
             select(Product).where(

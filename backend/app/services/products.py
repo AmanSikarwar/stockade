@@ -7,7 +7,9 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.product import Product
+from app.models.stock_movement import MANUAL_REASONS, StockMovement
 from app.repositories.products import ProductRepository
+from app.repositories.stock_movements import StockMovementRepository
 
 MONEY_QUANT = Decimal("0.01")
 
@@ -32,6 +34,7 @@ class ProductService:
     def __init__(self, session: Session, organization_id: UUID) -> None:
         self.session = session
         self.repository = ProductRepository(session, organization_id)
+        self.movements = StockMovementRepository(session, organization_id)
 
     def create_product(
         self,
@@ -120,6 +123,58 @@ class ProductService:
         except IntegrityError as exc:
             self.session.rollback()
             raise ProductValidationError("Product could not be deleted") from exc
+
+    def adjust_stock(
+        self,
+        product_id: UUID,
+        *,
+        delta: int,
+        reason: str = "manual",
+        note: str | None = None,
+    ) -> Product:
+        delta = int(delta)
+        if delta == 0:
+            raise ProductValidationError("Stock adjustment delta must be non-zero")
+        if reason not in MANUAL_REASONS:
+            raise ProductValidationError("Invalid stock adjustment reason")
+
+        try:
+            product = self.repository.get_active_for_update(product_id)
+            if product is None:
+                raise ProductNotFoundError("Product not found")
+
+            new_quantity = product.quantity_in_stock + delta
+            if new_quantity < 0:
+                raise ProductValidationError("Stock adjustment would make quantity negative")
+
+            product.quantity_in_stock = new_quantity
+            self.movements.record(
+                product_id=product.id,
+                delta=delta,
+                resulting_quantity=new_quantity,
+                reason=reason,
+                note=(note.strip() or None) if note else None,
+            )
+            self.session.commit()
+        except ProductError:
+            self.session.rollback()
+            raise
+        except IntegrityError as exc:
+            self.session.rollback()
+            raise ProductValidationError("Stock adjustment could not be saved") from exc
+
+        self.session.refresh(product)
+        return product
+
+    def list_stock_movements(
+        self,
+        product_id: UUID,
+        *,
+        limit: int,
+        offset: int,
+    ) -> tuple[list[StockMovement], int]:
+        self.get_product(product_id)
+        return self.movements.list_for_product(product_id=product_id, limit=limit, offset=offset)
 
     def _commit_and_refresh(self, product: Product) -> Product:
         try:

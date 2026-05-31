@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.models.order import Order, OrderLineItem
 from app.repositories.orders import OrderRepository
+from app.repositories.stock_movements import StockMovementRepository
 
 MONEY_QUANT = Decimal("0.01")
 
@@ -63,6 +64,7 @@ class OrderService:
     def __init__(self, session: Session, organization_id: UUID) -> None:
         self.session = session
         self.repository = OrderRepository(session, organization_id)
+        self.movements = StockMovementRepository(session, organization_id)
 
     def create_order(self, *, customer_id: UUID, line_items: Sequence[OrderLineInput]) -> Order:
         quantities_by_product = aggregate_quantities(line_items)
@@ -118,6 +120,18 @@ class OrderService:
                 total_amount=normalize_money(total_amount),
                 line_items=order_line_items,
             )
+            # Flush to assign the order id before recording referencing audit rows.
+            self.session.flush()
+            for product_id in ordered_product_ids:
+                product = products_by_id[product_id]
+                quantity = quantities_by_product[product_id]
+                self.movements.record(
+                    product_id=product.id,
+                    delta=-quantity,
+                    resulting_quantity=product.quantity_in_stock,
+                    reason="order",
+                    reference_order_id=order.id,
+                )
             self.session.commit()
         except OrderError:
             self.session.rollback()
@@ -172,6 +186,13 @@ class OrderService:
             for line_item in line_items:
                 product = products_by_id[line_item.product_id]
                 product.quantity_in_stock += line_item.quantity_ordered
+                self.movements.record(
+                    product_id=product.id,
+                    delta=line_item.quantity_ordered,
+                    resulting_quantity=product.quantity_in_stock,
+                    reason="cancellation",
+                    reference_order_id=order.id,
+                )
 
             order.status = "cancelled"
             self.session.commit()
