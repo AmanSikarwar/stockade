@@ -1277,16 +1277,16 @@ svg {
   }
   .nav-collapsed .nav-item .badge {
     position: absolute;
-    top: 5px;
-    right: 14px;
+    top: 4px;
+    right: 21px;
     margin: 0;
-    min-width: 15px;
-    height: 15px;
+    min-width: 14px;
+    height: 14px;
     padding: 0 3px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    font-size: 9.5px;
+    font-size: 8.5px;
     line-height: 1;
     border: 1.5px solid var(--surface);
     background: var(--accent);
